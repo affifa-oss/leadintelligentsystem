@@ -43,7 +43,7 @@ describe('AI with Google Gemini', () => {
     const s = aiStatus()
     assert.equal(s.configured, true)
     assert.equal(s.provider, 'gemini')
-    assert.equal(s.model, 'gemini-flash-latest')
+    assert.equal(s.model, 'gemini-3.5-flash-lite')
   })
 
   it('writes the summary with Gemini and sends a valid request', async () => {
@@ -53,7 +53,7 @@ describe('AI with Google Gemini', () => {
     assert.equal(ai.summary, 'Wants a new online store soon.')
 
     const [call] = calls
-    assert.match(call.url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-flash-latest:generateContent$/)
+    assert.match(call.url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-3.5-flash-lite:generateContent$/)
     assert.equal(call.headers['x-goog-api-key'], 'test-gemini-key')
     assert.ok(!call.url.includes('test-gemini-key'), 'key must not be in the URL')
     const cfg = call.body.generationConfig
@@ -84,6 +84,22 @@ describe('AI with Google Gemini', () => {
     assert.equal((await summarizeInquiry(lead)).source, 'template')
     assert.equal(calls.length, 1, 'second request should not call Gemini again during the cool-down')
     assert.equal(aiStatus().coolingDown, true)
+  })
+
+  it('tries the backup model when the first one is busy, and ignores thought parts', async () => {
+    const calls: string[] = []
+    globalThis.fetch = (async (url: string | URL) => {
+      calls.push(String(url))
+      if (calls.length === 1) return new Response(JSON.stringify({ error: { message: 'high demand' } }), { status: 503 })
+      const parts = [{ text: 'thinking...', thought: true }, { text: JSON.stringify({ subject: 'Hi', body: 'Hello from backup' }) }]
+      return new Response(JSON.stringify({ candidates: [{ content: { parts }, finishReason: 'STOP' }] }), { status: 200 })
+    }) as typeof fetch
+    const d = await draftFollowUp(lead, 'email', 'Sara', '')
+    assert.equal(d.source, 'gemini')
+    assert.equal(d.body, 'Hello from backup')
+    assert.match(calls[0], /gemini-3\.5-flash-lite:/)
+    assert.match(calls[1], /gemini-flash-lite-latest:/)
+    assert.equal(aiStatus().coolingDown, false)
   })
 
   it('falls back to the template when Gemini blocks the prompt', async () => {

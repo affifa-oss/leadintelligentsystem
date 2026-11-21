@@ -41,7 +41,7 @@ Copy `backend/.env.example` to `backend/.env`.
 
 | Setting | Enables |
 |---|---|
-| `GEMINI_API_KEY` | **Free** AI-written inquiry summaries and follow-up drafts with Google Gemini (key from [aistudio.google.com](https://aistudio.google.com), no card needed; free-tier rate limits apply). Optional `GEMINI_MODEL` (default `gemini-flash-latest`). Without any AI key: built-in templates |
+| `GEMINI_API_KEY` | **Free** AI-written inquiry summaries and follow-up drafts with Google Gemini (key from [aistudio.google.com](https://aistudio.google.com), no card needed; free-tier rate limits apply). Optional `GEMINI_MODEL` (default `gemini-3.5-flash-lite`). Without any AI key: built-in templates |
 | `ANTHROPIC_API_KEY` | Paid alternative: Claude-written summaries and drafts (optional `AI_MODEL`, default `claude-opus-5-5`). If both keys are set Gemini is used unless `AI_PROVIDER=claude` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Real email delivery for follow-up reminders and password reset (without it: emails are kept in Settings → Email → Outbox) |
 | `APP_URL` | Links inside emails |
@@ -75,7 +75,7 @@ Priority: **High ≥ 80**, **Medium ≥ 55**, otherwise Low (Admin can change th
 ## Tests
 
 ```bash
-npm test          # 41 tests: scoring, intent, duplicates, validation, CSV, Gemini AI + API (auth, roles, import, AI, services, capture, security)
+npm test          # 42 tests: scoring, intent, duplicates, validation, CSV, Gemini AI + API (auth, roles, import, AI, services, capture, security)
 npm run check     # typecheck + tests + lint + production build
 ```
 

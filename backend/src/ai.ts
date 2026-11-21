@@ -28,7 +28,12 @@ function provider(): Provider | null {
 }
 
 function modelFor(p: Provider) {
-  return p === 'gemini' ? process.env.GEMINI_MODEL || 'gemini-flash-latest' : process.env.AI_MODEL || 'claude-opus-5-5'
+  return p === 'gemini' ? process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite' : process.env.AI_MODEL || 'claude-opus-5-5'
+}
+
+/** Gemini models to try in order: the chosen one, then a free-tier backup if it is busy or retired. */
+function geminiModels() {
+  return [...new Set([modelFor('gemini'), 'gemini-flash-lite-latest'])]
 }
 
 let client: Anthropic | null = null
@@ -113,18 +118,27 @@ function toGeminiSchema(schema: unknown): unknown {
 }
 
 interface GeminiResponse {
-  candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]
+  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[]
   promptFeedback?: { blockReason?: string }
   error?: { message?: string }
 }
 
+/** Tries each Gemini model in turn. Busy (429/5xx), retired (404) or slow models move on to the next one. */
 async function askGemini<T>(prompt: string, schema: Record<string, unknown>): Promise<T | null> {
-  const model = modelFor('gemini')
+  const models = geminiModels()
+  for (const model of models) {
+    const outcome = await callGemini<T>(model, prompt, schema)
+    if (outcome !== 'try-next') return outcome
+  }
+  return null
+}
+
+async function callGemini<T>(model: string, prompt: string, schema: Record<string, unknown>): Promise<T | null | 'try-next'> {
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': geminiKey() },
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(25_000),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -133,9 +147,10 @@ async function askGemini<T>(prompt: string, schema: Record<string, unknown>): Pr
     })
     const json = (await res.json().catch(() => ({}))) as GeminiResponse
     if (!res.ok) {
-      // Wrong key / no access: stop trying for a while. Rate limit (429) or server errors: just this request uses the template.
-      if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) disabledUntil = Date.now() + COOL_DOWN_MS
-      console.warn(`[ai] Gemini request failed (${res.status}), using template:`, json.error?.message ?? res.statusText)
+      console.warn(`[ai] Gemini ${model} failed (${res.status}):`, json.error?.message ?? res.statusText)
+      if (res.status === 404 || res.status === 429 || res.status >= 500) return 'try-next'
+      // Wrong key / no access (400, 401, 403): stop trying for a while and use templates.
+      disabledUntil = Date.now() + COOL_DOWN_MS
       return null
     }
     const candidate = json.candidates?.[0]
@@ -143,11 +158,12 @@ async function askGemini<T>(prompt: string, schema: Record<string, unknown>): Pr
       console.warn('[ai] Gemini gave no usable answer, using template:', json.promptFeedback?.blockReason ?? candidate?.finishReason ?? 'empty')
       return null
     }
-    const text = candidate.content?.parts?.map((part) => part.text ?? '').join('') ?? ''
+    // Skip the model's internal "thought" parts; only the answer text is JSON.
+    const text = candidate.content?.parts?.filter((part) => !part.thought).map((part) => part.text ?? '').join('') ?? ''
     return text ? (JSON.parse(text) as T) : null
   } catch (e) {
-    console.warn('[ai] Gemini request failed, using template:', e instanceof Error ? e.message : e)
-    return null
+    console.warn(`[ai] Gemini ${model} failed:`, e instanceof Error ? e.message : e)
+    return e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'try-next' : null
   }
 }
 
