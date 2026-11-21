@@ -75,7 +75,7 @@ Priority: **High ≥ 80**, **Medium ≥ 55**, otherwise Low (Admin can change th
 ## Tests
 
 ```bash
-npm test          # 34 tests: scoring, intent, duplicates, validation, CSV + API (auth, roles, import, AI, services, capture, security)
+npm test          # 41 tests: scoring, intent, duplicates, validation, CSV, Gemini AI + API (auth, roles, import, AI, services, capture, security)
 npm run check     # typecheck + tests + lint + production build
 ```
 
