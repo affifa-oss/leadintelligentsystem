@@ -5,6 +5,7 @@ import type { WebsiteAnalysis } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { ProgressBar } from '../ui/Misc'
+import { CompanyProfileView } from './CompanyProfileView'
 
 /** Displays a website analysis result, or a button to run one. */
 export function WebsiteAnalysisView({ analysis, website, onRun }: { analysis?: WebsiteAnalysis; website: string; onRun?: () => Promise<void> }) {
@@ -28,7 +29,7 @@ export function WebsiteAnalysisView({ analysis, website, onRun }: { analysis?: W
     return (
       <div className="flex flex-col items-start gap-3 rounded-xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-600">
-          {running ? <>Visiting <b className="text-ink">{website}</b> and checking its pages… this can take a few seconds.</> : <>Analyse <b className="text-ink">{website}</b> to detect technology, speed, SEO and sales opportunities.</>}
+          {running ? <>Visiting <b className="text-ink">{website}</b>, reading its pages and history, and writing a company profile… this can take 10–20 seconds.</> : <>Analyse <b className="text-ink">{website}</b> to learn who the company is, its history, technology, speed, SEO and sales opportunities.</>}
         </p>
         {onRun && (
           <Button size="sm" icon={running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />} onClick={run} disabled={running}>
@@ -49,6 +50,7 @@ export function WebsiteAnalysisView({ analysis, website, onRun }: { analysis?: W
           {onRun && <Button size="sm" variant="ghost" onClick={run} disabled={running}>{running ? 'Analysing…' : 'Re-run'}</Button>}
         </div>
       </div>
+      <CompanyProfileView analysis={analysis} />
       {(analysis.title || analysis.description) && (
         <div className="rounded-xl border border-slate-100 p-3">
           {analysis.title && <p className="truncate text-sm font-semibold text-ink">{analysis.title}</p>}

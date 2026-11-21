@@ -47,11 +47,11 @@ export default function WebsiteAnalysisPage() {
 
   return (
     <>
-      <PageHeader title="Website Analysis" description="Check a company website to understand its technology, performance and SEO, and spot services you can offer." />
+      <PageHeader title="Website Analysis" description="Learn who a company is, what it does and its history, check its website’s SEO and speed, and spot services you can offer." />
 
       <div className="mb-6 flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-800">
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <p>The server visits the public home page and checks HTTPS, response time, page size, SEO tags, mobile readiness and technology used. Performance is an <b>estimate</b> from response time and page weight, not a full Lighthouse audit.</p>
+        <p>The server visits the public home page and About page, looks up the domain's history in the <b>Internet Archive</b>, and checks HTTPS, speed (Google Lighthouse when available), SEO tags, mobile readiness and technology. <b>AI</b> then writes a company profile: who they are, what they do, their history and how we can help.</p>
       </div>
 
       <Card className="mb-6">

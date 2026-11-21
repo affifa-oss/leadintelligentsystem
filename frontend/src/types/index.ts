@@ -98,6 +98,48 @@ export interface WebsiteAnalysis {
   description?: string
   responseTimeMs?: number
   pageSizeKb?: number
+  /** Domain history from the Internet Archive (Wayback Machine). Null when the archive has no record. */
+  domainHistory?: DomainHistory | null
+  /** Copyright years found in the page footer, e.g. "2015–2026". */
+  copyrightYears?: string
+  /** Links to the company's social media profiles found on the site. */
+  socialLinks?: string[]
+  /** Public contact email(s) found on the site. */
+  contactEmails?: string[]
+  /** Address of the About page that was read, if one was found. */
+  aboutPageUrl?: string
+  /** AI-written profile of the company behind the website. */
+  companyProfile?: CompanyProfile
+}
+
+export interface DomainHistory {
+  /** First and latest snapshot in the Internet Archive (ISO dates). */
+  firstSeen: string
+  lastSeen: string
+  /** Years in which the site was archived, oldest first. */
+  archivedYears: number[]
+  /** Link to the Wayback Machine calendar for this site. */
+  archiveUrl: string
+}
+
+/** What the company behind a website is and does, written by AI from the site content and its history. */
+export interface CompanyProfile {
+  overview: string
+  whatTheyDo: string[]
+  productsAndServices: string[]
+  targetCustomers: string
+  location: string
+  /** Timeline / background points (domain history, founding year, milestones) found on the site or archive. */
+  history: string[]
+  websitePurpose: string
+  /** Plain-language summary of the SEO and technical state. */
+  seoSummary: string
+  /** How our services could help this company. */
+  salesAngle: string[]
+  /** Facts the AI knows about this company from general knowledge (to be verified), or empty. */
+  generalKnowledge: string
+  source: AiSource
+  generatedAt: string
 }
 
 export interface Lead extends LeadInput {

@@ -58,6 +58,7 @@ HubSpot token, webhook URL, lead-capture API key and the service catalogue are m
 | **Outputs**: score, priority, potential value, service fit, reasoning, next action, follow-up suggestions | Rule-based engine `frontend/src/lib/intelligence.ts`, shared by frontend (live preview) and backend |
 | Service recommendation | **Admin-editable service catalogue** (Services page): name, starting price, keywords, industries. Changes re-score all leads |
 | Automatic website analysis | `backend/src/websiteAnalyzer.ts`: visits the site (HTTPS, response time, page size, SEO tags, mobile viewport, technology signatures) + **Google Lighthouse** performance via PageSpeed Insights |
+| **Company profile & history** | The analyser also reads the About page, footer copyright years, social links and contact email, and the domain's history in the **Internet Archive** (online since, years active). AI (Gemini / Claude) then writes a profile: overview, what they do, products, customers, location, history timeline, website purpose, SEO in plain words and how we can help. Template profile without an AI key |
 | Industry classification · buying intent · service fit | `classifyIndustry()`, `detectBuyingIntent()`, `scoreServiceFit()` |
 | Duplicate detection | Same email, phone, company domain or company name (`frontend/src/lib/duplicates.ts`) |
 | Lead history | Every change is logged on the server and shown per lead and globally |
@@ -75,7 +76,7 @@ Priority: **High ≥ 80**, **Medium ≥ 55**, otherwise Low (Admin can change th
 ## Tests
 
 ```bash
-npm test          # 42 tests: scoring, intent, duplicates, validation, CSV, Gemini AI + API (auth, roles, import, AI, services, capture, security)
+npm test          # 49 tests: scoring, intent, duplicates, validation, CSV, Gemini AI, website profile + API (auth, roles, import, AI, services, capture, security)
 npm run check     # typecheck + tests + lint + production build
 ```
 

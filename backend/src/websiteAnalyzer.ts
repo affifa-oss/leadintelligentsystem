@@ -2,13 +2,15 @@
  * REAL website analysis (server side).
  * Downloads the public home page and inspects it: HTTPS, response time, page weight,
  * SEO tags, mobile viewport, and technology signatures. No third-party API keys needed.
+ * It also reads the About page, footer, social links and the domain's history in the
+ * Internet Archive, and returns the readable page text so the AI can write a company profile.
  *
  * Security: only public http(s) hosts are allowed (private / local network addresses are blocked)
  * so the server cannot be used to probe internal machines.
  */
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import type { WebsiteAnalysis } from './shared.ts'
+import type { DomainHistory, WebsiteAnalysis } from './shared.ts'
 
 const TIMEOUT_MS = 12_000
 const MAX_BYTES = 3 * 1024 * 1024
@@ -118,11 +120,126 @@ const TECH_SIGNATURES: { name: string; test: (html: string, h: Headers) => boole
   { name: 'Vercel', test: (_s, h) => /vercel/i.test(h.get('server') ?? '') || h.has('x-vercel-id') },
 ]
 
+/** Readable text of an HTML page (no scripts, styles or tags), trimmed to `max` characters. */
+export function pageText(html: string, max = 6000) {
+  return html
+    .replace(/<(script|style|noscript|svg|template|iframe)\b[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(br|p|div|li|h[1-6]|tr|section|article|header|footer)\b[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&copy;/gi, '©')
+    .replace(/&[a-z]+;|&#\d+;/gi, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
+    .slice(0, max)
+}
+
+const SOCIAL = /https?:\/\/(?:www\.)?(?:facebook\.com|instagram\.com|linkedin\.com|twitter\.com|x\.com|youtube\.com|tiktok\.com|pinterest\.com)\/[^\s"'<>?#]+/gi
+
+export function socialLinks(html: string) {
+  const found = (html.match(SOCIAL) ?? []).map((u) => u.replace(/\/+$/, ''))
+  // skip share buttons and generic pages
+  return [...new Set(found.filter((u) => !/sharer|share\?|intent\/|\/plugins\/|\/dialog\/|\/tr$|\/watch$/i.test(u)))].slice(0, 8)
+}
+
+export function contactEmails(html: string) {
+  const found = html.match(/mailto:([^"'?\s>]+)/gi)?.map((m) => decodeURIComponent(m.slice(7)).toLowerCase()) ?? []
+  return [...new Set(found.filter((e) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(e)))].slice(0, 3)
+}
+
+export function copyrightYears(text: string) {
+  const m = text.match(/(?:©|copyright)\s*(?:\(c\)\s*)?((?:19|20)\d{2})(?:\s*[-–]\s*((?:19|20)\d{2}))?/i)
+  return m ? (m[2] ? `${m[1]}–${m[2]}` : m[1]) : undefined
+}
+
+/** Finds a link to the About / Company / Our story page on the same site. */
+export function aboutLink(html: string, base: URL): URL | null {
+  const links = [...html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
+  let best: { url: URL; rank: number } | null = null
+  for (const [, href, label] of links) {
+    if (/^(mailto|tel|javascript):/i.test(href)) continue
+    const text = label.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    // Lower rank = better: an /about path beats an "About us" label, which beats a generic "company" link.
+    const rank = /\/(about|about-us|who-we-are|our-story)\/?$/i.test(href)
+      ? 0
+      : /^(about|about us|who we are|our story|our company)$/i.test(text)
+        ? 1
+        : /about|who we are|our story|history|über uns|qui sommes/i.test(`${href} ${text}`)
+          ? 2
+          : /^company$|\/company\/?$/i.test(text || href)
+            ? 3
+            : -1
+    if (rank < 0 || (best && best.rank <= rank)) continue
+    try {
+      const u = new URL(href, base)
+      if (u.hostname.replace(/^www\./, '') === base.hostname.replace(/^www\./, '') && u.pathname !== base.pathname) best = { url: u, rank }
+    } catch {
+      /* ignore bad links */
+    }
+    if (best?.rank === 0) break
+  }
+  return best?.url ?? null
+}
+
+/** Reads the About page (best effort: any failure just means no About text). */
+async function aboutPage(html: string, base: URL) {
+  const link = aboutLink(html, base)
+  if (!link) return null
+  try {
+    const page = await fetchPage(link)
+    if (page.res.status >= 400) return null
+    return { url: page.url.toString(), text: pageText(page.html, 4000) }
+  } catch {
+    return null
+  }
+}
+
+const isoFromStamp = (t: string) => `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}`
+
+/** When the domain first appeared online and which years it was archived, from the Internet Archive. */
+export async function domainHistory(host: string): Promise<DomainHistory | null> {
+  if (process.env.ARCHIVE_LOOKUP === 'false') return null
+  const domain = host.replace(/^www\./, '')
+  const api = new URL('https://web.archive.org/cdx/search/cdx')
+  api.searchParams.set('url', domain)
+  api.searchParams.set('output', 'json')
+  api.searchParams.set('fl', 'timestamp')
+  api.searchParams.set('collapse', 'timestamp:4') // one snapshot per year
+  try {
+    const res = await fetch(api, { signal: AbortSignal.timeout(Number(process.env.ARCHIVE_TIMEOUT_MS) || 12_000), headers: { 'user-agent': UA } })
+    if (!res.ok) return null
+    const rows = (await res.json()) as string[][]
+    const stamps = rows.slice(1).map((r) => r[0]).filter((t) => /^\d{8}/.test(t))
+    if (!stamps.length) return null
+    return {
+      firstSeen: isoFromStamp(stamps[0]),
+      lastSeen: isoFromStamp(stamps[stamps.length - 1]),
+      archivedYears: [...new Set(stamps.map((t) => Number(t.slice(0, 4))))],
+      archiveUrl: `https://web.archive.org/web/*/${domain}`,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Text the AI reads to describe the company. Not stored. */
+export interface SiteContent {
+  homeText: string
+  aboutText: string
+  headings: string[]
+}
+
 const meta = (html: string, name: string) =>
   html.match(new RegExp(`<meta[^>]+(?:name|property)=["']${name}["'][^>]*content=["']([^"']*)["']`, 'i'))?.[1] ??
   html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:name|property)=["']${name}["']`, 'i'))?.[1]
 
-export async function analyzeWebsite(input: string): Promise<WebsiteAnalysis> {
+export async function analyzeWebsite(input: string): Promise<{ analysis: WebsiteAnalysis; content: SiteContent }> {
   const trimmed = input.trim()
   if (!trimmed) throw new AnalysisError('Enter a website address.')
   let start: URL
@@ -151,8 +268,9 @@ export async function analyzeWebsite(input: string): Promise<WebsiteAnalysis> {
   if (res.status >= 400) throw new AnalysisError(`The website responded with error ${res.status}.`)
 
   const h = res.headers
-  const title = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim().replace(/\s+/g, ' ') ?? ''
-  const description = meta(html, 'description')?.trim() ?? ''
+  // pageText also turns HTML entities such as &amp; into normal characters.
+  const title = pageText(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? '', 300).replace(/\s+/g, ' ')
+  const description = pageText(meta(html, 'description') ?? '', 500).replace(/\s+/g, ' ')
   const viewport = meta(html, 'viewport') ?? ''
   const hasH1 = /<h1[\s>]/i.test(html)
   const hasLang = /<html[^>]+lang=/i.test(html)
@@ -193,7 +311,12 @@ export async function analyzeWebsite(input: string): Promise<WebsiteAnalysis> {
   else if (scripts > 12) perf -= 8
   if (!compressed) perf -= 5
   const estimated = Math.max(5, Math.min(100, perf))
-  const lighthouse = await lighthousePerformance(url.toString())
+  // These lookups are independent, so run them at the same time.
+  const [lighthouse, about, history] = await Promise.all([lighthousePerformance(url.toString()), aboutPage(html, url), domainHistory(url.hostname)])
+  // Keep the start of the page and the footer (where copyright, address and company details usually are).
+  const fullText = pageText(html, 400_000)
+  const homeText = fullText.length > 6000 ? `${fullText.slice(0, 4800)}\n…\n${fullText.slice(-1200)}` : fullText
+  const headings = [...html.matchAll(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi)].map((m) => pageText(m[1], 160)).filter(Boolean).slice(0, 15)
   const performanceScore = lighthouse ?? estimated
 
   const detectedTech = TECH_SIGNATURES.filter((t) => {
@@ -225,8 +348,9 @@ export async function analyzeWebsite(input: string): Promise<WebsiteAnalysis> {
   if (!detectedTech.some((t) => ['Shopify', 'WooCommerce'].includes(t))) opportunities.push('Add online sales, booking or lead-capture features')
   if (!detectedTech.includes('Google Analytics')) opportunities.push('Set up analytics and conversion tracking')
   if (seoScore >= 75 && performanceScore >= 75) observations.push('Overall the website is in good technical shape.')
+  if (history) observations.push(`Domain first archived on ${history.firstSeen}; seen online in ${history.archivedYears.length} different year${history.archivedYears.length === 1 ? '' : 's'}.`)
 
-  return {
+  const analysis: WebsiteAnalysis = {
     url: url.toString(),
     analyzedAt: new Date().toISOString(),
     hasSsl,
@@ -242,5 +366,11 @@ export async function analyzeWebsite(input: string): Promise<WebsiteAnalysis> {
     description,
     responseTimeMs: Math.round(total),
     pageSizeKb: sizeKb,
+    domainHistory: history,
+    copyrightYears: copyrightYears(fullText),
+    socialLinks: socialLinks(html),
+    contactEmails: contactEmails(html),
+    aboutPageUrl: about?.url,
   }
+  return { analysis, content: { homeText, aboutText: about?.text ?? '', headings } }
 }

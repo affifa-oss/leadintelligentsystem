@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Router, type Request, type Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { canEditLead, canSeeLead, requireAdmin, requireAuth, signToken } from '../auth.ts'
-import { aiStatus, draftFollowUp, summarizeInquiry } from '../ai.ts'
+import { aiStatus, draftFollowUp, profileCompany, summarizeInquiry } from '../ai.ts'
 import { followUps, history, leads, loadDemoData, outbox, passwordResets, services, settings, users } from '../db.ts'
 import { emitLeadEvent, HubspotError, integrationConfig, publicIntegrationConfig, pushToHubspot, saveIntegrationConfig, sendWebhook, WEBHOOK_EVENTS } from '../integrations.ts'
 import { appUrl, emailStatus, sendEmail } from '../mailer.ts'
@@ -173,12 +173,18 @@ api.patch('/leads/:id/notes', (req, res) => {
   res.json({ ok: true })
 })
 
+/** Technical website check plus an AI profile of the company (who they are, what they do, history). */
+async function analyzeWithProfile(url: string) {
+  const { analysis, content } = await analyzeWebsite(url)
+  return { ...analysis, companyProfile: await profileCompany({ analysis, content }) }
+}
+
 api.post('/leads/:id/website-analysis', async (req, res) => {
   const lead = loadLead(req, res, true)
   if (!lead) return
   if (!lead.website) return fail(res, 400, 'This lead has no website.')
   try {
-    const websiteAnalysis = await analyzeWebsite(lead.website)
+    const websiteAnalysis = await analyzeWithProfile(lead.website)
     const fresh = leads.byId(lead.id)!
     leads.save({ ...fresh, websiteAnalysis })
     logHistory(lead.id, req.user!.id, 'Website analysed', `${websiteAnalysis.url}: performance ${websiteAnalysis.performanceScore}, SEO ${websiteAnalysis.seoScore}.`)
@@ -191,7 +197,7 @@ api.post('/leads/:id/website-analysis', async (req, res) => {
 /** Analyse any website (not linked to a lead). */
 api.post('/website-analysis', async (req, res) => {
   try {
-    res.json({ websiteAnalysis: await analyzeWebsite(String(req.body?.url ?? '')) })
+    res.json({ websiteAnalysis: await analyzeWithProfile(String(req.body?.url ?? '')) })
   } catch (e) {
     fail(res, 422, e instanceof AnalysisError ? e.message : 'Website analysis failed.')
   }
