@@ -1,0 +1,16 @@
+{
+  "name": "lead-intelligence-system",
+  "private": true,
+  "description": "Lead Intelligence System: understand, score, categorise and prioritise incoming leads",
+  "scripts": {
+    "setup": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "dev": "concurrently -k -n api,web -c blue,cyan \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix frontend",
+    "start": "npm run build && npm start --prefix backend",
+    "check": "npm run typecheck --prefix backend && npm test --prefix backend && npm run lint --prefix frontend && npm run build --prefix frontend",
+    "test": "npm test --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}

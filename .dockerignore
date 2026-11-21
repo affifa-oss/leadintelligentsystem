@@ -1,0 +1,6 @@
+**/node_modules
+frontend/dist
+frontend/_backup_original_src
+backend/data
+**/.env
+.claude
