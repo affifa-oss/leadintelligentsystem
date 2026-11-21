@@ -57,7 +57,7 @@ export function RequireAuth({ children, adminOnly = false }: { children: ReactNo
 
 export function FullPageLoader({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-[#f5f8fc]">
+    <div className="grid min-h-screen place-items-center bg-[#f3fbf7]">
       <div className="flex flex-col items-center gap-4">
         <Logo />
         <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand-100 border-t-brand-600" />

@@ -98,7 +98,7 @@ export default function LeadScoringPage() {
                 <YAxis {...axis} allowDecimals={false} />
                 <Tooltip {...tooltip} />
                 <Bar dataKey="count" name="Leads" radius={[6, 6, 0, 0]}>
-                  {buckets.map((b) => <Cell key={b.range} fill={b.lo >= scoring.highThreshold - 9 && b.lo + 9 >= scoring.highThreshold ? '#1d4ed8' : b.lo + 9 >= scoring.mediumThreshold ? '#60a5fa' : '#cbd5e1'} />)}
+                  {buckets.map((b) => <Cell key={b.range} fill={b.lo >= scoring.highThreshold - 9 && b.lo + 9 >= scoring.highThreshold ? '#0f7357' : b.lo + 9 >= scoring.mediumThreshold ? '#47cb9c' : '#cbd5e1'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

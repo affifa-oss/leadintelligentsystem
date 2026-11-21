@@ -144,7 +144,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   if (loading) return <FullPageLoader label="Loading your leads…" />
   if (user && loadError)
     return (
-      <div className="grid min-h-screen place-items-center bg-[#f5f8fc] p-6">
+      <div className="grid min-h-screen place-items-center bg-[#f3fbf7] p-6">
         <div className="max-w-sm rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-sm">
           <AlertCircle className="mx-auto h-8 w-8 text-rose-500" />
           <p className="mt-3 font-semibold text-ink">Could not load data</p>

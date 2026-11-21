@@ -102,15 +102,15 @@ export default function DashboardPage() {
               <AreaChart data={weekly} margin={{ left: -20, right: 8, top: 8 }}>
                 <defs>
                   <linearGradient id="gLeads" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#20b082" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#20b082" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke={grid} vertical={false} />
                 <XAxis dataKey="label" {...axis} />
                 <YAxis {...axis} allowDecimals={false} />
-                <Tooltip {...tooltip} cursor={{ stroke: '#bfdbfe' }} formatter={(v, n) => (n === 'Leads' ? v : formatMoney(Number(v)))} />
-                <Area type="monotone" dataKey="leads" name="Leads" stroke="#2563eb" strokeWidth={2.5} fill="url(#gLeads)" />
+                <Tooltip {...tooltip} cursor={{ stroke: '#b0eed5' }} formatter={(v, n) => (n === 'Leads' ? v : formatMoney(Number(v)))} />
+                <Area type="monotone" dataKey="leads" name="Leads" stroke="#12906a" strokeWidth={2.5} fill="url(#gLeads)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

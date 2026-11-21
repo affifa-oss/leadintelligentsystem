@@ -110,7 +110,7 @@ export default function AnalyticsPage() {
               <div key={f.stage}>
                 <div className="mb-1 flex justify-between text-sm"><span className="font-medium text-slate-700">{f.stage}</span><span className="text-slate-500"><b className="text-ink">{f.count}</b> · {pct(f.count, funnel[0].count)}%</span></div>
                 <div className="h-7 overflow-hidden rounded-lg bg-slate-100">
-                  <div className="h-full rounded-lg" style={{ width: `${pct(f.count, funnel[0].count)}%`, background: i === funnel.length - 1 ? '#10b981' : BLUE[Math.min(i, BLUE.length - 1)] }} />
+                  <div className="h-full rounded-lg" style={{ width: `${pct(f.count, funnel[0].count)}%`, background: i === funnel.length - 1 ? '#0d9488' : BLUE[Math.min(i, BLUE.length - 1)] }} />
                 </div>
               </div>
             ))}
@@ -126,8 +126,8 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="source" {...axis} />
                 <YAxis {...axis} allowDecimals={false} />
                 <Tooltip {...tooltip} />
-                <Bar dataKey="leads" name="Leads" fill="#93c5fd" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="won" name="Won" fill="#1d4ed8" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="leads" name="Leads" fill="#7fe0bb" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="won" name="Won" fill="#0f7357" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -142,7 +142,7 @@ export default function AnalyticsPage() {
                 <XAxis type="number" {...axis} tickFormatter={(v) => formatCompactMoney(Number(v))} />
                 <YAxis type="category" dataKey="name" {...axis} width={120} />
                 <Tooltip {...tooltip} formatter={(v) => formatMoney(Number(v))} />
-                <Bar dataKey="value" name="Potential value" fill="#2563eb" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="value" name="Potential value" fill="#12906a" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

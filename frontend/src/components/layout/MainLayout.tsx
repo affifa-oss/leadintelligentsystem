@@ -1,6 +1,6 @@
 import { Suspense, useState } from 'react'
 import { LogOut } from 'lucide-react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/auth-context'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Misc'
@@ -10,6 +10,7 @@ import { Sidebar } from './Sidebar'
 export function MainLayout() {
   const [open, setOpen] = useState(false)
   const [confirm, setConfirm] = useState(false)
+  const { pathname } = useLocation()
   const { logout } = useAuth()
   const navigate = useNavigate()
 
@@ -20,7 +21,9 @@ export function MainLayout() {
         <Header onMenu={() => setOpen(true)} />
         <main className="mx-auto w-full max-w-[1360px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <Suspense fallback={<div className="grid h-64 place-items-center"><span className="h-8 w-8 animate-spin rounded-full border-[3px] border-brand-100 border-t-brand-600" aria-label="Loading" /></div>}>
-            <Outlet />
+            <div key={pathname} className="animate-page">
+              <Outlet />
+            </div>
           </Suspense>
         </main>
       </div>

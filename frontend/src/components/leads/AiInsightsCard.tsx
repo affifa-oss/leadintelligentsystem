@@ -40,7 +40,7 @@ export function AiInsightsCard({ lead }: { lead: Lead }) {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Section icon={<ListChecks className="h-4 w-4 text-brand-600" />} title="Key needs" items={ai.keyNeeds} />
             <Section icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} title="Concerns" items={ai.concerns} empty="No major concerns." />
-            <Section icon={<HelpCircle className="h-4 w-4 text-indigo-500" />} title="Ask on the next call" items={ai.questionsToAsk} />
+            <Section icon={<HelpCircle className="h-4 w-4 text-teal-500" />} title="Ask on the next call" items={ai.questionsToAsk} />
           </div>
           {ai.source === 'template' && <p className="text-xs text-slate-400">Add a free Gemini API key (GEMINI_API_KEY in backend/.env) to get AI-written summaries (see README).</p>}
         </div>

@@ -12,13 +12,13 @@ import { useVisibleLeads } from '../store/useVisibleLeads'
 const ICONS: Record<string, { icon: LucideIcon; cls: string }> = {
   'Lead created': { icon: PlusCircle, cls: 'bg-brand-50 text-brand-600' },
   'Lead updated': { icon: Pencil, cls: 'bg-slate-100 text-slate-600' },
-  'Status changed': { icon: ArrowRightLeft, cls: 'bg-indigo-50 text-indigo-600' },
+  'Status changed': { icon: ArrowRightLeft, cls: 'bg-teal-50 text-teal-600' },
   'Lead assigned': { icon: UserCheck, cls: 'bg-emerald-50 text-emerald-600' },
   'Lead unassigned': { icon: UserCheck, cls: 'bg-slate-100 text-slate-600' },
   'Follow-up scheduled': { icon: BellRing, cls: 'bg-amber-50 text-amber-600' },
   'Follow-up completed': { icon: BellRing, cls: 'bg-emerald-50 text-emerald-600' },
-  'Website analysed': { icon: Globe, cls: 'bg-sky-50 text-sky-600' },
-  'Notes updated': { icon: StickyNote, cls: 'bg-violet-50 text-violet-600' },
+  'Website analysed': { icon: Globe, cls: 'bg-cyan-50 text-cyan-700' },
+  'Notes updated': { icon: StickyNote, cls: 'bg-lime-50 text-lime-700' },
 }
 
 export default function LeadHistoryPage() {

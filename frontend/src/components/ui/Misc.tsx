@@ -21,8 +21,8 @@ export function PageHeader({ title, description, actions, back }: { title: strin
 
 const statTones = {
   blue: { icon: 'from-brand-500 to-brand-700', glow: 'bg-brand-400/15', bar: 'from-brand-500 to-brand-300' },
-  sky: { icon: 'from-sky-400 to-sky-600', glow: 'bg-sky-400/15', bar: 'from-sky-500 to-sky-300' },
-  indigo: { icon: 'from-indigo-500 to-indigo-700', glow: 'bg-indigo-400/15', bar: 'from-indigo-500 to-indigo-300' },
+  sky: { icon: 'from-cyan-400 to-teal-600', glow: 'bg-cyan-400/15', bar: 'from-cyan-500 to-teal-300' },
+  indigo: { icon: 'from-teal-500 to-emerald-700', glow: 'bg-teal-400/15', bar: 'from-teal-500 to-emerald-300' },
   green: { icon: 'from-emerald-400 to-emerald-600', glow: 'bg-emerald-400/15', bar: 'from-emerald-500 to-emerald-300' },
   amber: { icon: 'from-amber-400 to-amber-600', glow: 'bg-amber-400/15', bar: 'from-amber-500 to-amber-300' },
   red: { icon: 'from-rose-400 to-rose-600', glow: 'bg-rose-400/15', bar: 'from-rose-500 to-rose-300' },
@@ -44,13 +44,13 @@ export function StatCard({ label, value, icon: Icon, hint, tone = 'blue', to }: 
       <span className={`absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r opacity-0 transition group-hover:opacity-100 ${t.bar}`} />
     </>
   )
-  const cls = 'group relative block overflow-hidden rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-18px_rgba(37,99,235,0.25)] transition'
+  const cls = 'animate-rise group relative block overflow-hidden rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-18px_rgba(18,144,106,0.25)] transition'
   return to ? (
-    <Link to={to} className={`${cls} hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-[0_18px_40px_-20px_rgba(37,99,235,0.45)]`}>
+    <Link to={to} className={`${cls} hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-[0_18px_40px_-20px_rgba(18,144,106,0.45)]`}>
       {body}
     </Link>
   ) : (
-    <div className={cls}>{body}</div>
+    <div className={`${cls} hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-20px_rgba(18,144,106,0.45)]`}>{body}</div>
   )
 }
 
@@ -83,14 +83,14 @@ export function ScoreRing({ score, size = 120, label = 'Lead score' }: { score: 
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={`${label}: ${score} out of 100`}>
       <circle cx="50" cy="50" r={r} fill="none" stroke="#e2e8f0" strokeWidth="9" />
-      <circle cx="50" cy="50" r={r} fill="none" stroke="url(#ringGrad)" strokeWidth="9" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - score / 100)} transform="rotate(-90 50 50)" />
+      <circle cx="50" cy="50" r={r} fill="none" stroke="url(#ringGrad)" strokeWidth="9" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - score / 100)} transform="rotate(-90 50 50)" className="animate-ring" style={{ ['--ring-full' as string]: `${c}` }} />
       <defs>
         <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#60a5fa" />
-          <stop offset="1" stopColor="#1d4ed8" />
+          <stop offset="0" stopColor="#47cb9c" />
+          <stop offset="1" stopColor="#0f7357" />
         </linearGradient>
       </defs>
-      <text x="50" y="52" textAnchor="middle" fontSize="24" fontWeight="800" fill="#0f172a">{score}</text>
+      <text x="50" y="52" textAnchor="middle" fontSize="24" fontWeight="800" fill="#0d2a22">{score}</text>
       <text x="50" y="66" textAnchor="middle" fontSize="8.5" fill="#64748b">out of 100</text>
     </svg>
   )

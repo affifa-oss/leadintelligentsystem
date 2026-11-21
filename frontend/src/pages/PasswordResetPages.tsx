@@ -1,25 +1,27 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowLeft, CheckCircle2, KeyRound, Mail } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Logo } from '../components/layout/Logo'
+import { AuthBackdrop, PulsingMark, authCard } from '../components/layout/AuthBackdrop'
 import { api, ApiError } from '../lib/api'
 
 function Shell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="grid min-h-screen place-items-center px-4 py-12">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200/70 bg-white p-8 shadow-[0_20px_60px_-30px_rgba(37,99,235,0.45)]">
-        <Logo />
-        <h1 className="mt-8 text-2xl font-extrabold tracking-tight text-ink">{title}</h1>
-        <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
-        <div className="mt-6">{children}</div>
-        <Link to="/login" className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-800"><ArrowLeft className="h-4 w-4" /> Back to sign in</Link>
+    <AuthBackdrop>
+      <div className={authCard}>
+        <PulsingMark />
+        <h1 className="mt-6 text-center text-2xl font-extrabold tracking-tight text-ink">{title}</h1>
+        <p className="mt-1.5 text-center text-sm text-slate-500">{subtitle}</p>
+        <div className="mt-7">{children}</div>
+        <div className="mt-6 text-center">
+          <Link to="/login" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 transition hover:-translate-x-0.5 hover:text-brand-800"><ArrowLeft className="h-4 w-4" /> Back to sign in</Link>
+        </div>
       </div>
-    </div>
+    </AuthBackdrop>
   )
 }
 
-const input = 'h-12 w-full rounded-xl border border-slate-200 pl-10 pr-4 text-sm focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100'
-const button = 'flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-sm font-semibold text-white shadow-lg shadow-brand-600/25 hover:from-brand-700 disabled:opacity-60'
+const input = 'h-12 w-full rounded-2xl border border-slate-200 bg-white/90 pl-10 pr-4 text-sm focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100'
+const button = 'shine flex h-12 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-brand-500 to-brand-700 text-sm font-semibold text-white shadow-lg shadow-brand-600/30 transition hover:-translate-y-0.5 disabled:opacity-60'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
