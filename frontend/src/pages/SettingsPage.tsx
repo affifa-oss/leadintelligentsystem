@@ -14,8 +14,10 @@ import type { Role, User } from '../types'
 type Tab = 'profile' | 'team' | 'scoring' | 'email' | 'integrations'
 
 const PLANNED = [
-  { name: 'HubSpot / Zoho / Salesforce sync', desc: 'Two-way sync of leads and deal stages (needs each CRM’s OAuth app).' },
-  { name: 'Email reminders', desc: 'Send follow-up reminders by email (needs an SMTP / Gmail account).' },
+  {
+    name: 'Two-way CRM sync (HubSpot / Zoho / Salesforce)',
+    desc: 'Leads already go from LeadIntel to your CRM (HubSpot push and webhooks above). Bringing deal stages and updates back from the CRM is planned (needs each CRM’s OAuth app).',
+  },
 ]
 
 export default function SettingsPage() {
