@@ -35,6 +35,17 @@ On first start the database (`backend/data/leadintel.db`) is created with demo d
 
 Change the demo passwords (Settings → My profile) before real use.
 
+## Deploy online (Vercel + Render, free)
+
+The web app goes on **Vercel**; the API and database run on **Render** (Vercel cannot keep the SQLite file or run the reminder job). `vercel.json` forwards every `/api` request from Vercel to Render, so it works as one site.
+
+1. **Render (API):** render.com → **New → Blueprint** → choose this GitHub repo. `render.yaml` sets everything up; enter your `GEMINI_API_KEY` (and later `APP_URL`) when asked. Wait until `https://leadintel-api.onrender.com/api/health` shows `{"ok":true}`.
+2. If Render gave the service a different address, put that address in `vercel.json` (`destination`) and push.
+3. **Vercel (web app):** vercel.com → **Add New → Project** → import this repo → keep the settings from `vercel.json` → **Deploy**.
+4. On Render, set `APP_URL` to your Vercel address (used in email links).
+
+Free-plan limits: Render sleeps after ~15 minutes without visitors (first visit takes ~1 minute) and has no persistent disk, so data resets to the demo data after each restart. The Render address also works on its own as the full app. Change the demo passwords before sharing the link widely.
+
 ## Configuration (`backend/.env`, all optional)
 
 Copy `backend/.env.example` to `backend/.env`.

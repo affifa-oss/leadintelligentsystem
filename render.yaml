@@ -1,0 +1,26 @@
+# Render Blueprint: runs the LeadIntel API (and the built web app) from the Dockerfile.
+# render.com → New → Blueprint → pick this GitHub repo. Render asks for the secret values marked sync: false.
+#
+# Free plan notes: the service sleeps after ~15 minutes without visitors (first visit then takes ~1 minute),
+# and there is no persistent disk, so the database is re-created with the demo data after every restart/deploy.
+services:
+  - type: web
+    name: leadintel-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Free Google Gemini key for AI summaries, drafts and company profiles (from https://aistudio.google.com)
+      - key: GEMINI_API_KEY
+        sync: false
+      # Public address of the app, used in email links. Set it to your Vercel URL, e.g. https://leadintel.vercel.app
+      - key: APP_URL
+        sync: false
+      # Fixed secret for login tokens, so users stay signed in across restarts
+      - key: JWT_SECRET
+        generateValue: true
