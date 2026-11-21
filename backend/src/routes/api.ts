@@ -363,14 +363,14 @@ api.delete('/services/:id', requireAdmin, (req, res) => {
   res.json({ ok: true })
 })
 
-// ── AI (Claude) features ──────────────────────────────────────────────────
+// ── AI (Gemini / Claude) features ──────────────────────────────────────────────────
 api.post('/leads/:id/ai-summary', async (req, res) => {
   const lead = loadLead(req, res)
   if (!lead) return
   const ai = await summarizeInquiry(lead)
   const fresh = leads.byId(lead.id)!
   leads.save({ ...fresh, ai })
-  logHistory(lead.id, req.user!.id, 'AI summary generated', ai.source === 'claude' ? 'Inquiry summarised by Claude.' : 'Inquiry summarised (template, AI not configured).')
+  logHistory(lead.id, req.user!.id, 'AI summary generated', ai.source === 'template' ? 'Inquiry summarised (template, AI not configured).' : `Inquiry summarised by ${ai.source === 'gemini' ? 'Gemini' : 'Claude'}.`)
   res.json({ ai })
 })
 

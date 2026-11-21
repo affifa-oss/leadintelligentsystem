@@ -115,21 +115,24 @@ export interface Lead extends LeadInput {
   hubspotId?: string
 }
 
-/** AI (Claude) or template-generated summary of the client's inquiry. */
+/** Where an AI result came from: Google Gemini, Claude, or the built-in template (no AI key). */
+export type AiSource = 'gemini' | 'claude' | 'template'
+
+/** AI (Gemini / Claude) or template-generated summary of the client's inquiry. */
 export interface LeadAiInsights {
   summary: string
   keyNeeds: string[]
   concerns: string[]
   questionsToAsk: string[]
   generatedAt: string
-  source: 'claude' | 'template'
+  source: AiSource
 }
 
 export interface FollowUpDraft {
   channel: 'email' | 'whatsapp'
   subject: string
   body: string
-  source: 'claude' | 'template'
+  source: AiSource
 }
 
 export type FollowUpType = 'call' | 'email' | 'meeting' | 'demo'

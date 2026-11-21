@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { AlertTriangle, HelpCircle, ListChecks, Loader2, RefreshCw, Sparkles } from 'lucide-react'
-import { relativeTime } from '../../lib/format'
+import { aiSourceBadge, relativeTime } from '../../lib/format'
 import { useData } from '../../store/data-context'
 import type { Lead } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardHeader } from '../ui/Card'
 
-/** AI inquiry summary (Claude when configured, otherwise a template built from the lead data). */
+/** AI inquiry summary (Gemini or Claude when configured, otherwise a template built from the lead data). */
 export function AiInsightsCard({ lead }: { lead: Lead }) {
   const { generateAiSummary } = useData()
   const [busy, setBusy] = useState(false)
@@ -27,7 +27,7 @@ export function AiInsightsCard({ lead }: { lead: Lead }) {
         icon={<Sparkles className="h-[18px] w-[18px]" />}
         action={
           <div className="flex items-center gap-2">
-            {ai && <Badge tone={ai.source === 'claude' ? 'violet' : 'gray'}>{ai.source === 'claude' ? 'Claude AI' : 'Template'}</Badge>}
+            {ai && <Badge tone={aiSourceBadge(ai.source).tone}>{aiSourceBadge(ai.source).label}</Badge>}
             <Button size="sm" variant={ai ? 'ghost' : 'primary'} disabled={busy} icon={busy ? <Loader2 className="h-4 w-4 animate-spin" /> : ai ? <RefreshCw className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />} onClick={run}>
               {busy ? 'Thinking…' : ai ? 'Regenerate' : 'Generate summary'}
             </Button>
@@ -42,7 +42,7 @@ export function AiInsightsCard({ lead }: { lead: Lead }) {
             <Section icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} title="Concerns" items={ai.concerns} empty="No major concerns." />
             <Section icon={<HelpCircle className="h-4 w-4 text-indigo-500" />} title="Ask on the next call" items={ai.questionsToAsk} />
           </div>
-          {ai.source === 'template' && <p className="text-xs text-slate-400">Add an Anthropic API key on the server to get Claude-written summaries (see README).</p>}
+          {ai.source === 'template' && <p className="text-xs text-slate-400">Add a free Gemini API key (GEMINI_API_KEY in backend/.env) to get AI-written summaries (see README).</p>}
         </div>
       ) : (
         <p className="px-5 py-6 text-sm text-slate-500">No summary yet. Generate one to get a quick brief before contacting the client.</p>

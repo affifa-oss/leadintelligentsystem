@@ -2,7 +2,7 @@
 
 Understand, score, categorise and prioritise incoming leads. Raw inquiries become actionable sales opportunities with a score, priority, potential value, service fit, reasoning, next action and follow-up suggestions.
 
-**Stack:** React 19 + TypeScript + Vite + Tailwind CSS 4 (frontend) · Node.js + Express + SQLite (`node:sqlite`, built into Node 22) (backend) · JWT login with bcrypt-hashed passwords · Claude (Anthropic SDK) for AI features · Nodemailer for email.
+**Stack:** React 19 + TypeScript + Vite + Tailwind CSS 4 (frontend) · Node.js + Express + SQLite (`node:sqlite`, built into Node 22) (backend) · JWT login with bcrypt-hashed passwords · Google Gemini (free) or Claude (Anthropic SDK) for AI features · Nodemailer for email.
 
 ## Quick start
 
@@ -41,7 +41,8 @@ Copy `backend/.env.example` to `backend/.env`.
 
 | Setting | Enables |
 |---|---|
-| `ANTHROPIC_API_KEY` | Claude-written inquiry summaries and follow-up drafts (without it: built-in templates) |
+| `GEMINI_API_KEY` | **Free** AI-written inquiry summaries and follow-up drafts with Google Gemini (key from [aistudio.google.com](https://aistudio.google.com), no card needed; free-tier rate limits apply). Optional `GEMINI_MODEL` (default `gemini-flash-latest`). Without any AI key: built-in templates |
+| `ANTHROPIC_API_KEY` | Paid alternative: Claude-written summaries and drafts (optional `AI_MODEL`, default `claude-opus-5-5`). If both keys are set Gemini is used unless `AI_PROVIDER=claude` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Real email delivery for follow-up reminders and password reset (without it: emails are kept in Settings → Email → Outbox) |
 | `APP_URL` | Links inside emails |
 | `PAGESPEED_API_KEY` | Reliable Google Lighthouse performance scores (works without a key on a small shared quota) |
@@ -60,7 +61,7 @@ HubSpot token, webhook URL, lead-capture API key and the service catalogue are m
 | Industry classification · buying intent · service fit | `classifyIndustry()`, `detectBuyingIntent()`, `scoreServiceFit()` |
 | Duplicate detection | Same email, phone, company domain or company name (`frontend/src/lib/duplicates.ts`) |
 | Lead history | Every change is logged on the server and shown per lead and globally |
-| **AI inquiry summary & AI follow-up message** (FR-13) | Lead page → *AI inquiry summary* and *Draft message* (email or WhatsApp, opens in the mail app / WhatsApp). Claude `claude-opus-5-5` with server-side refusal fallback; template mode without a key |
+| **AI inquiry summary & AI follow-up message** (FR-13) | Lead page → *AI inquiry summary* and *Draft message* (email or WhatsApp, opens in the mail app / WhatsApp). Google Gemini (free tier) or Claude `claude-opus-5-5`; template mode without a key or if the AI call fails |
 | **Email notifications** | Automatic reminder emails for follow-ups due within the hour (every 5 min) + password-reset emails; outbox in Settings |
 | **CRM integration** | Lead-capture API (website forms → leads), signed **webhooks** (Zapier/Make/n8n → Zoho, Salesforce, Sheets…), **HubSpot** push (manual or automatic) |
 | Dashboards, reports, follow-up reminders | Dashboard, Analytics & Reports (CSV export), Follow-ups page + bell |
@@ -119,7 +120,7 @@ backend/
   src/db.ts               SQLite tables (users, leads, follow-ups, history, services, outbox, settings)
   src/auth.ts             JWT + role rules
   src/routes/api.ts       app API · src/routes/capture.ts public lead-capture API
-  src/ai.ts               Claude summaries/drafts with template fallback
+  src/ai.ts               Gemini / Claude summaries and drafts with template fallback
   src/mailer.ts, reminders.ts   email + reminder job
   src/integrations.ts     webhooks + HubSpot
   src/websiteAnalyzer.ts  real website analysis + PageSpeed

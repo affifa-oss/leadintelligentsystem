@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, Copy, Loader2, Mail, MessageCircle, Sparkles } from 'lucide-react'
+import { aiSourceBadge } from '../../lib/format'
 import { useData } from '../../store/data-context'
 import type { FollowUpDraft, Lead } from '../../types'
 import { Badge } from '../ui/Badge'
@@ -7,7 +8,7 @@ import { Button } from '../ui/Button'
 import { Field, TextArea, TextInput } from '../ui/Fields'
 import { Modal, Tabs } from '../ui/Misc'
 
-/** Draft a follow-up email or WhatsApp message (Claude AI when configured). The user reviews and sends it themselves. */
+/** Draft a follow-up email or WhatsApp message (Gemini or Claude AI when configured). The user reviews and sends it themselves. */
 export function DraftMessageModal({ lead, open, onClose, initialPurpose = '' }: { lead: Lead; open: boolean; onClose: () => void; initialPurpose?: string }) {
   const { draftMessage } = useData()
   const [channel, setChannel] = useState<'email' | 'whatsapp'>('email')
@@ -71,7 +72,7 @@ export function DraftMessageModal({ lead, open, onClose, initialPurpose = '' }: 
           <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Draft (edit before sending)</p>
-              <Badge tone={draft.source === 'claude' ? 'violet' : 'gray'}>{draft.source === 'claude' ? 'Claude AI' : 'Template'}</Badge>
+              <Badge tone={aiSourceBadge(draft.source).tone}>{aiSourceBadge(draft.source).label}</Badge>
             </div>
             {channel === 'email' && <TextInput value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} aria-label="Subject" />}
             <TextArea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} className="min-h-[200px]" aria-label="Message" />

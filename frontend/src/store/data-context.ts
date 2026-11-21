@@ -11,7 +11,7 @@ export interface DataState {
 }
 
 export interface SystemStatus {
-  ai: { enabled: boolean; configured: boolean; model: string }
+  ai: { enabled: boolean; configured: boolean; provider: 'gemini' | 'claude' | null; model: string | null }
   email: {
     configured: boolean
     mode: 'smtp' | 'test-inbox' | 'off'

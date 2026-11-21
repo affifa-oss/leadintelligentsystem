@@ -66,3 +66,10 @@ export function downloadCsv(filename: string, rows: Record<string, string | numb
   a.click()
   URL.revokeObjectURL(url)
 }
+
+/** Badge label and colour for where an AI result came from. */
+export function aiSourceBadge(source: 'gemini' | 'claude' | 'template'): { label: string; tone: 'blue' | 'violet' | 'gray' } {
+  if (source === 'gemini') return { label: 'Gemini AI', tone: 'blue' }
+  if (source === 'claude') return { label: 'Claude AI', tone: 'violet' }
+  return { label: 'Template', tone: 'gray' }
+}

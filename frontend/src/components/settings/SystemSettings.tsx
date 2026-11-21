@@ -153,11 +153,11 @@ export function CrmSettings() {
       </Card>
 
       <Card>
-        <CardHeader title="AI assistant (Claude)" subtitle="Inquiry summaries and follow-up message drafts" icon={<Bot className="h-[18px] w-[18px]" />} action={ai && <Badge tone={ai.configured ? 'green' : 'amber'} dot>{ai.configured ? `On · ${ai.model}` : 'Template mode'}</Badge>} />
+        <CardHeader title="AI assistant" subtitle="Inquiry summaries and follow-up message drafts" icon={<Bot className="h-[18px] w-[18px]" />} action={ai && <Badge tone={ai.configured ? 'green' : 'amber'} dot>{ai.configured ? `On · ${ai.model}` : 'Template mode'}</Badge>} />
         <p className="p-5 text-sm text-slate-600">
           {ai?.configured
-            ? 'Summaries and drafts are written by Claude. Client text is treated as data, and drafts must be reviewed before sending.'
-            : <>No Anthropic API key on the server, so summaries and drafts use built-in templates. Add <code>ANTHROPIC_API_KEY</code> to <code>backend/.env</code> and restart to switch on Claude.</>}
+            ? `Summaries and drafts are written by ${ai.provider === 'gemini' ? 'Google Gemini' : 'Claude'}. Client text is treated as data, and drafts must be reviewed before sending.`
+            : <>No AI key on the server, so summaries and drafts use built-in templates. Add a free Google Gemini key as <code>GEMINI_API_KEY</code> in <code>backend/.env</code> (get one at aistudio.google.com) and restart the app.</>}
         </p>
       </Card>
     </div>
