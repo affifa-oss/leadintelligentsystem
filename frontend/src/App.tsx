@@ -2,6 +2,7 @@ import { lazy, type ComponentType } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './auth/AuthProvider'
 import { MainLayout } from './components/layout/MainLayout'
+import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages'
 import { DataProvider } from './store/DataProvider'
@@ -31,6 +32,7 @@ export default function App() {
       <AuthProvider>
         <DataProvider>
           <Routes>
+            <Route index element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -41,7 +43,6 @@ export default function App() {
                 </RequireAuth>
               }
             >
-              <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="leads" element={<LeadsPage />} />
               <Route path="leads/new" element={<LeadFormPage />} />

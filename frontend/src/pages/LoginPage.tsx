@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/auth-context'
 import { AuthBackdrop, PulsingMark, authCard } from '../components/layout/AuthBackdrop'
@@ -40,6 +40,9 @@ export default function LoginPage() {
 
   return (
     <AuthBackdrop>
+      <Link to="/" className="mx-auto mb-4 flex w-fit items-center gap-1.5 rounded-full bg-white/80 px-3.5 py-1.5 text-sm font-medium text-slate-600 shadow-sm ring-1 ring-brand-100 backdrop-blur transition hover:-translate-y-0.5 hover:text-brand-700">
+        <ArrowLeft className="h-4 w-4" /> Back to home
+      </Link>
       <div className={authCard}>
         <PulsingMark />
         <h1 className="mt-6 text-center text-[28px] font-extrabold tracking-tight text-ink">
