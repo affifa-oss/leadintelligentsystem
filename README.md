@@ -2,7 +2,7 @@
 
 Understand, score, categorise and prioritise incoming leads. Raw inquiries become actionable sales opportunities with a score, priority, potential value, service fit, reasoning, next action and follow-up suggestions.
 
-**Stack:** React 19 + TypeScript + Vite + Tailwind CSS 4 (frontend) · Node.js + Express + SQLite (`node:sqlite`, built into Node 22) (backend) · JWT login with bcrypt-hashed passwords · Google Gemini (free) or Claude (Anthropic SDK) for AI features · Nodemailer for email.
+**Stack:** React 19 + TypeScript + Vite + Tailwind CSS 4 (frontend) · Node.js + Express (backend) · Firebase Firestore database (local SQLite fallback for tests) · JWT login with bcrypt-hashed passwords · Google Gemini (free) or Claude (Anthropic SDK) for AI features · Nodemailer for email.
 
 ## Quick start
 
@@ -26,25 +26,35 @@ docker build -t leadintel .
 docker run -p 4000:4000 -v leadintel-data:/data --env-file backend/.env leadintel
 ```
 
-On first start the database (`backend/data/leadintel.db`) is created with demo data.
+### Database: Firebase Firestore
 
-| Demo account (password `demo123`) | Role |
-|---|---|
-| admin@leadintel.dev | Admin / Sales Manager |
-| sara@leadintel.dev · ali@leadintel.dev · hina@leadintel.dev | Sales Employee |
+Data is stored in **Firebase Firestore** (project `leadintel-cb905`). The backend finds the service-account key in this order:
 
-Change the demo passwords (Settings → My profile) before real use.
+1. `FIREBASE_SERVICE_ACCOUNT`: the whole key JSON as one environment variable (used on Render)
+2. `GOOGLE_APPLICATION_CREDENTIALS`: path to the key file
+3. `backend/firebase-service-account.json` (local development; ignored by git, never commit it)
+
+Without a key the backend falls back to a local SQLite file (`backend/data/leadintel.db`); tests always use a temporary SQLite file and never touch Firebase.
+Collections: `users`, `leads`, `followUps`, `history`, `services`, `settings`, `outbox`, `passwordResets`, `counters`.
+
+The app ships without sample data: no sample leads or accounts.
+Create the first admin account in one of two ways:
+
+- set `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 8 characters, optional `ADMIN_NAME`) in `backend/.env`, or
+- open the app: while no account exists, the login page shows **Create your admin account**.
+
+Then add your team under Settings → Team members.
 
 ## Deploy online (Vercel + Render, free)
 
-The web app goes on **Vercel**; the API and database run on **Render** (Vercel cannot keep the SQLite file or run the reminder job). `vercel.json` forwards every `/api` request from Vercel to Render, so it works as one site.
+The web app goes on **Vercel**; the API and database run on **Render** (Vercel cannot run the always-on API or the reminder job). `vercel.json` forwards every `/api` request from Vercel to Render, so it works as one site.
 
-1. **Render (API):** render.com → **New → Blueprint** → choose this GitHub repo. `render.yaml` sets everything up; enter your `GEMINI_API_KEY` (and later `APP_URL`) when asked. Wait until `https://leadintel-api.onrender.com/api/health` shows `{"ok":true}`.
+1. **Render (API):** render.com → **New → Blueprint** → choose this GitHub repo. `render.yaml` sets everything up; enter `FIREBASE_SERVICE_ACCOUNT` (paste the full contents of the Firebase key JSON file), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `GEMINI_API_KEY` (and later `APP_URL`) when asked. Wait until `https://leadintel-api.onrender.com/api/health` shows `{"ok":true}`.
 2. If Render gave the service a different address, put that address in `vercel.json` (`destination`) and push.
 3. **Vercel (web app):** vercel.com → **Add New → Project** → import this repo → keep the settings from `vercel.json` → **Deploy**.
 4. On Render, set `APP_URL` to your Vercel address (used in email links).
 
-Free-plan limits: Render sleeps after ~15 minutes without visitors (first visit takes ~1 minute) and has no persistent disk, so data resets to the demo data after each restart. The Render address also works on its own as the full app. Change the demo passwords before sharing the link widely.
+Free-plan limits: Render sleeps after ~15 minutes without visitors (first visit takes ~1 minute) and has no persistent disk; that no longer matters because all data lives in Firebase Firestore. The Render address also works on its own as the full app.
 
 ## Configuration (`backend/.env`, all optional)
 
@@ -57,6 +67,8 @@ Copy `backend/.env.example` to `backend/.env`.
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Real email delivery for follow-up reminders and password reset (without it: emails are kept in Settings → Email → Outbox) |
 | `APP_URL` | Links inside emails |
 | `PAGESPEED_API_KEY` | Reliable Google Lighthouse performance scores (works without a key on a small shared quota) |
+| `FIREBASE_SERVICE_ACCOUNT` / `GOOGLE_APPLICATION_CREDENTIALS` | Firebase Firestore database (see above). `DB_DRIVER=sqlite` forces the local SQLite file |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | Creates the first admin account when the database is empty (otherwise: set it up on the login page) |
 | `JWT_SECRET` | Fixed token-signing secret (otherwise generated and stored) |
 
 HubSpot token, webhook URL, lead-capture API key and the service catalogue are managed in the app (Admin).
@@ -97,7 +109,7 @@ API tests run the real app against a temporary database.
 
 | Method | Path | Who |
 |---|---|---|
-| POST | `/auth/login`, `/auth/forgot`, `/auth/reset` · GET `/auth/me` | public / signed in |
+| POST | `/auth/login`, `/auth/forgot`, `/auth/reset` · GET/POST `/auth/setup` (first admin, only while no users exist) · GET `/auth/me` | public / signed in |
 | GET | `/bootstrap` (role-filtered data), `/status` | signed in |
 | POST/PUT/DELETE | `/leads`, `/leads/:id` · POST `/leads/import` | create/import: all · edit: owner/admin · delete: admin |
 | PATCH | `/leads/:id/status`, `/notes` · `/assign` | owner/admin · admin |
@@ -106,7 +118,7 @@ API tests run the real app against a temporary database.
 | POST/PATCH/DELETE | `/follow-ups…` | owner/admin |
 | POST/PUT/DELETE | `/services`, `/services/:id` | admin |
 | POST/PUT | `/users…` | admin (self for own profile/password) |
-| GET/PUT/POST | `/settings/scoring`, `/settings/email…`, `/settings/crm…`, `/settings/integration…`, `/settings/reminders/run`, `/settings/reset-demo` | admin |
+| GET/PUT/POST | `/settings/scoring`, `/settings/email…`, `/settings/crm…`, `/settings/integration…`, `/settings/reminders/run` | admin |
 | POST | `/public/leads` (header `x-api-key`) | external forms / systems |
 
 ## Security notes
@@ -129,7 +141,8 @@ API tests run the real app against a temporary database.
 ```
 backend/
   src/app.ts, server.ts   Express app (also serves frontend/dist) and startup
-  src/db.ts               SQLite tables (users, leads, follow-ups, history, services, outbox, settings)
+  src/store.ts            storage drivers: Firebase Firestore, or SQLite for tests
+  src/db.ts               data access (users, leads, follow-ups, history, services, outbox, settings)
   src/auth.ts             JWT + role rules
   src/routes/api.ts       app API · src/routes/capture.ts public lead-capture API
   src/ai.ts               Gemini / Claude summaries and drafts with template fallback

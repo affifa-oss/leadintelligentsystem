@@ -16,19 +16,20 @@ export function signToken(user: User) {
 }
 
 /** Requires a valid Bearer token from an active user. */
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization ?? ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : ''
   if (!token) return res.status(401).json({ error: 'Please sign in.' })
+  let payload: { sub: string }
   try {
-    const payload = jwt.verify(token, settings.jwtSecret()) as { sub: string }
-    const user = users.byId(payload.sub)
-    if (!user || !user.active) return res.status(401).json({ error: 'Your account is not active.' })
-    req.user = user
-    next()
+    payload = jwt.verify(token, settings.jwtSecret()) as { sub: string }
   } catch {
     return res.status(401).json({ error: 'Your session has expired. Please sign in again.' })
   }
+  const user = await users.byId(payload.sub)
+  if (!user || !user.active) return res.status(401).json({ error: 'Your account is not active.' })
+  req.user = user
+  next()
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {

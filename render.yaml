@@ -2,7 +2,7 @@
 # render.com → New → Blueprint → pick this GitHub repo. Render asks for the secret values marked sync: false.
 #
 # Free plan notes: the service sleeps after ~15 minutes without visitors (first visit then takes ~1 minute),
-# and there is no persistent disk, so the database is re-created with the demo data after every restart/deploy.
+# and there is no persistent disk, which is fine: all data is stored in Firebase Firestore.
 services:
   - type: web
     name: leadintel-api
@@ -15,6 +15,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Firebase Firestore database: paste the full contents of the service-account key JSON file.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      # First admin account, created when the database has no users (password: at least 8 characters).
+      # Without these, the first visitor of an empty database could create the admin account.
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
       # Free Google Gemini key for AI summaries, drafts and company profiles (from https://aistudio.google.com)
       - key: GEMINI_API_KEY
         sync: false

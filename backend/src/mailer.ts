@@ -41,7 +41,7 @@ async function getTestTransport() {
   if (!account) {
     const a = await nodemailer.createTestAccount()
     account = { user: a.user, pass: a.pass, smtp: { host: a.smtp.host, port: a.smtp.port, secure: a.smtp.secure } }
-    setSetting('ethereal_account', account)
+    await setSetting('ethereal_account', account)
     console.log(`[email] Free test inbox created: ${account.user} (login at https://ethereal.email/login)`)
   }
   // Many networks block 587/465, so try the usual ports and keep the first that connects.

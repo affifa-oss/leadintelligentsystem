@@ -2,3 +2,5 @@ node_modules
 frontend/dist
 backend/data/*.db*
 backend/.env
+backend/firebase-service-account.json
+*firebase-adminsdk*.json

@@ -11,11 +11,11 @@ const LOOKAHEAD_MS = 60 * 60_000
 export async function sendDueReminders() {
   const horizon = Date.now() + LOOKAHEAD_MS
   let sent = 0
-  for (const f of followUps.all()) {
+  for (const f of await followUps.all()) {
     if (f.status !== 'pending' || f.reminderSentAt || new Date(f.dueAt).getTime() > horizon) continue
-    const lead = leads.byId(f.leadId)
+    const lead = await leads.byId(f.leadId)
     if (!lead || ['won', 'lost'].includes(lead.status)) continue
-    const owner = users.byId(lead.assignedTo ?? f.createdBy) ?? users.byId(f.createdBy)
+    const owner = (await users.byId(lead.assignedTo ?? f.createdBy)) ?? (await users.byId(f.createdBy))
     if (!owner?.active) continue
     const due = new Date(f.dueAt)
     const overdue = due.getTime() < Date.now()
@@ -27,7 +27,7 @@ export async function sendDueReminders() {
         `${f.note ? `  Note: ${f.note}\n` : ''}\n  Lead priority: ${lead.intelligence.priority} (score ${lead.intelligence.score}/100)\n  Next action: ${lead.intelligence.nextAction}\n\n` +
         `Open the lead: ${appUrl()}/leads/${lead.id}\n\n— LeadIntel`,
     )
-    followUps.save({ ...f, reminderSentAt: new Date().toISOString() })
+    await followUps.save({ ...f, reminderSentAt: new Date().toISOString() })
     sent++
   }
   if (sent) console.log(`[reminders] sent ${sent} reminder email(s)`)

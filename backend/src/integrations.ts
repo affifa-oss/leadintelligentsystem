@@ -112,7 +112,7 @@ export async function pushToHubspot(lead: Lead): Promise<string> {
     throw new HubspotError(`HubSpot returned an error (${res.status}).`)
   }
   if (!id) throw new HubspotError('Could not read the HubSpot contact id.')
-  const fresh = leads.byId(lead.id)
-  if (fresh) leads.save({ ...fresh, hubspotId: id })
+  const fresh = await leads.byId(lead.id)
+  if (fresh) await leads.save({ ...fresh, hubspotId: id })
   return id
 }

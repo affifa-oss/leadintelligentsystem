@@ -62,7 +62,6 @@ export interface DataActions {
   saveUser: (u: User, password?: string) => Promise<void>
   changePassword: (userId: string, password: string, currentPassword?: string) => Promise<void>
   setScoring: (s: ScoringSettings) => Promise<void>
-  resetDemoData: () => Promise<void>
   getCaptureKey: () => Promise<string>
   regenerateCaptureKey: () => Promise<string>
   saveService: (s: Service, isNew: boolean) => Promise<void>

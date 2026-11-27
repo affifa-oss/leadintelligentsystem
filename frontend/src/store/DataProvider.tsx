@@ -102,7 +102,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }, 'Saved'),
       changePassword: (uid, password, currentPassword) => run(async () => void (await api(`/users/${uid}/password`, { method: 'PUT', body: { password, currentPassword } })), 'Password changed'),
       setScoring: (s) => run(async () => void (await api('/settings/scoring', { method: 'PUT', body: s })), 'Thresholds saved and all leads re-scored'),
-      resetDemoData: () => run(async () => void (await api('/settings/reset-demo', { body: {} })), 'Demo data restored'),
       getCaptureKey: async () => (await api<{ apiKey: string }>('/settings/integration')).apiKey,
       saveService: (svc: Service, isNew: boolean) =>
         run(async () => void (await api(isNew ? '/services' : `/services/${svc.id}`, { method: isNew ? 'POST' : 'PUT', body: svc })), 'Service saved, all leads re-scored'),

@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
+import { buildSeedData, DEMO_PASSWORD } from './fixtures/demoData.ts'
 
 const dir = mkdtempSync(join(tmpdir(), 'leadintel-test-'))
 process.env.DB_PATH = join(dir, 'test.db')
@@ -21,6 +22,25 @@ before(async () => {
   await new Promise((r) => server.once('listening', r))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`
   close = () => server.close()
+
+  // The app starts empty: check the first-admin setup, then load the test fixture.
+  assert.equal((await call('/auth/setup')).data.needsSetup, true)
+  assert.equal((await call('/auth/setup', { body: { name: 'Owner', email: 'owner@test-co.test', password: 'short' } })).status, 400)
+  const setup = await call('/auth/setup', { body: { name: 'Owner', email: 'owner@test-co.test', password: 'owner-pass-123' } })
+  assert.equal(setup.status, 201)
+  assert.equal(setup.data.user.role, 'admin')
+  assert.ok(setup.data.token)
+  assert.equal((await call('/auth/setup')).data.needsSetup, false)
+  assert.equal((await call('/auth/setup', { body: { name: 'Intruder', email: 'x@test-co.test', password: 'intruder-123' } })).status, 409)
+
+  const db = await import('../src/db.ts')
+  const seed = buildSeedData()
+  assert.equal(db.store.driver, 'sqlite')
+  for (const u of seed.users) await db.users.upsert(u, DEMO_PASSWORD)
+  await db.leads.saveMany(seed.leads)
+  for (const f of seed.followUps) await db.followUps.save(f)
+  await db.history.addMany(seed.history)
+  await db.store.increment('leadId', 0, 1000 + seed.leads.length)
 })
 after(() => {
   close()

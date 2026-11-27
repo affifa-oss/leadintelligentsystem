@@ -22,11 +22,10 @@ const PLANNED = [
 
 export default function SettingsPage() {
   const { user, isAdmin } = useAuth()
-  const { users, leads, scoring, saveUser, setScoring, resetDemoData, changePassword } = useData()
+  const { users, leads, scoring, saveUser, setScoring, changePassword } = useData()
   const [tab, setTab] = useState<Tab>('profile')
   const [editing, setEditing] = useState<User | null>(null)
   const [thresholds, setThresholds] = useState(scoring)
-  const [confirmReset, setConfirmReset] = useState(false)
 
   if (!user) return null
   const tabs: { value: Tab; label: string }[] = [{ value: 'profile', label: 'My profile' }]
@@ -127,13 +126,6 @@ export default function SettingsPage() {
               <p className="text-xs text-slate-500">Factor weights are explained on the Lead Scoring page.</p>
             </div>
           </Card>
-          <Card className="lg:col-span-2">
-            <CardHeader title="Demo data" subtitle="Restore the original sample leads, follow-ups and users" />
-            <div className="flex items-center justify-between gap-4 p-5">
-              <p className="text-sm text-slate-600">Replaces everything in the database with the sample data. Use only for demos and testing.</p>
-              <Button variant="secondary" icon={<RotateCcw className="h-4 w-4" />} onClick={() => setConfirmReset(true)}>Reset demo data</Button>
-            </div>
-          </Card>
         </div>
       )}
 
@@ -147,9 +139,6 @@ export default function SettingsPage() {
 
       <EmployeeModal key={editing?.id ?? 'none'} user={editing} onClose={() => setEditing(null)} onSave={async (u, pw) => { await saveUser(u, pw); setEditing(null) }} />
 
-      <Modal open={confirmReset} onClose={() => setConfirmReset(false)} size="sm" title="Reset demo data?" footer={<><Button variant="secondary" onClick={() => setConfirmReset(false)}>Cancel</Button><Button variant="danger" onClick={() => { setConfirmReset(false); resetDemoData().catch(() => undefined) }}>Reset</Button></>}>
-        <p className="text-sm text-slate-600">All leads, follow-ups, history and users will be replaced with the original sample data. This cannot be undone.</p>
-      </Modal>
     </>
   )
 }
