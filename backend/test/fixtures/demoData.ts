@@ -1,11 +1,10 @@
 /**
- * TEMPORARY SAMPLE DATA for UI development (no backend yet).
- * Dates are relative to "now" so the dashboard always looks current.
- * Intelligence (score, priority, recommendations) is NOT hardcoded — it is calculated by lib/intelligence.ts.
+ * TEST FIXTURE ONLY: sample users, leads, follow-ups and history for the backend tests.
+ * The app itself ships without any sample data.
+ * Dates are relative to "now"; intelligence is calculated by the real scoring engine.
  */
-import { analyzeLead } from '../lib/intelligence'
-import type { FollowUp, HistoryEntry, Lead, LeadInput, LeadStatus, User } from '../types'
-import { statusLabel } from './catalog'
+import { analyzeLead, statusLabel } from '../../src/shared.ts'
+import type { FollowUp, HistoryEntry, Lead, LeadInput, LeadStatus, User } from '../../src/shared.ts'
 
 export const DEMO_PASSWORD = 'demo123'
 

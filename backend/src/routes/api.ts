@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import { Router, type Request, type Response } from 'express'
+import type { Request, Response } from 'express'
+import { asyncRouter } from '../asyncRouter.ts'
 import bcrypt from 'bcryptjs'
 import { canEditLead, canSeeLead, requireAdmin, requireAuth, signToken } from '../auth.ts'
 import { aiStatus, draftFollowUp, profileCompany, summarizeInquiry } from '../ai.ts'
-import { followUps, history, leads, loadDemoData, outbox, passwordResets, services, settings, users } from '../db.ts'
+import { followUps, history, leads, outbox, passwordResets, services, settings, users } from '../db.ts'
 import { emitLeadEvent, HubspotError, integrationConfig, publicIntegrationConfig, pushToHubspot, saveIntegrationConfig, sendWebhook, WEBHOOK_EVENTS } from '../integrations.ts'
 import { appUrl, emailStatus, sendEmail } from '../mailer.ts'
 import { sendDueReminders } from '../reminders.ts'
@@ -11,20 +12,22 @@ import { analyzeLead, findDuplicates, getServices, guessService, sanitizeLeadInp
 import type { FollowUp, FollowUpType, HistoryEntry, Lead, LeadInput, LeadStatus, Role, ScoringSettings, Service, User } from '../shared.ts'
 import { AnalysisError, analyzeWebsite } from '../websiteAnalyzer.ts'
 
-export const api = Router()
+export const api = asyncRouter()
 
 const now = () => new Date().toISOString()
 const fail = (res: Response, status: number, error: string, details?: unknown) => res.status(status).json({ error, details })
 
-export function logHistory(leadId: string, actorId: string, action: string, detail: string) {
-  const h: HistoryEntry = { id: `H-${randomUUID()}`, leadId, at: now(), actorId, action, detail }
-  history.add(h)
+export const newHistory = (leadId: string, actorId: string, action: string, detail: string): HistoryEntry => ({ id: `H-${randomUUID()}`, leadId, at: now(), actorId, action, detail })
+
+export async function logHistory(leadId: string, actorId: string, action: string, detail: string) {
+  const h = newHistory(leadId, actorId, action, detail)
+  await history.add(h)
   return h
 }
 
 /** Load a lead the current user is allowed to see (and optionally edit). */
-function loadLead(req: Request, res: Response, edit = false): Lead | undefined {
-  const lead = leads.byId(String(req.params.id))
+async function loadLead(req: Request, res: Response, edit = false): Promise<Lead | undefined> {
+  const lead = await leads.byId(String(req.params.id))
   if (!lead || !canSeeLead(req.user!, lead)) {
     fail(res, 404, 'Lead not found.')
     return
@@ -39,14 +42,28 @@ function loadLead(req: Request, res: Response, edit = false): Lead | undefined {
 // ── health & auth ─────────────────────────────────────────────────────────
 api.get('/health', (_req, res) => res.json({ ok: true, time: now() }))
 
-api.post('/auth/login', (req, res) => {
+api.post('/auth/login', async (req, res) => {
   const email = String(req.body?.email ?? '').trim()
   const password = String(req.body?.password ?? '')
   if (!email || !password) return fail(res, 400, 'Please enter your email and password.')
-  const found = users.byEmailWithHash(email)
+  const found = await users.byEmailWithHash(email)
   if (!found || !bcrypt.compareSync(password, found.hash)) return fail(res, 401, 'Incorrect email or password.')
   if (!found.user.active) return fail(res, 403, 'This account has been deactivated. Contact your Sales Manager.')
   res.json({ token: signToken(found.user), user: found.user })
+})
+
+/** First start: true while the database has no users yet, so the login page can offer the setup step. */
+api.get('/auth/setup', async (_req, res) => res.json({ needsSetup: (await users.count()) === 0 }))
+
+/** Creates the first admin account. Only works while there are no users at all. */
+api.post('/auth/setup', async (req, res) => {
+  if ((await users.count()) > 0) return fail(res, 409, 'Setup is already complete. Please sign in.')
+  const u = readUser({ name: req.body?.name, email: req.body?.email, title: req.body?.title || 'Sales Manager', role: 'admin', active: true })
+  if (typeof u === 'string') return fail(res, 400, u)
+  const password = String(req.body?.password ?? '')
+  if (password.length < 8) return fail(res, 400, 'Password must be at least 8 characters.')
+  await users.upsert(u, password)
+  res.status(201).json({ token: signToken(u), user: u })
 })
 
 const forgotHits = new Map<string, number[]>()
@@ -56,9 +73,9 @@ api.post('/auth/forgot', async (req, res) => {
   if (recent.length >= 5) return fail(res, 429, 'Too many requests. Please try again later.')
   forgotHits.set(ip, [...recent, Date.now()])
   const email = String(req.body?.email ?? '').trim()
-  const found = email ? users.byEmailWithHash(email) : undefined
+  const found = email ? await users.byEmailWithHash(email) : undefined
   if (found?.user.active) {
-    const token = passwordResets.create(found.user.id)
+    const token = await passwordResets.create(found.user.id)
     await sendEmail(
       found.user.email,
       'Reset your LeadIntel password',
@@ -69,12 +86,12 @@ api.post('/auth/forgot', async (req, res) => {
   res.json({ ok: true, message: 'If that email belongs to an active account, a reset link has been sent.' })
 })
 
-api.post('/auth/reset', (req, res) => {
+api.post('/auth/reset', async (req, res) => {
   const password = String(req.body?.password ?? '')
   if (password.length < 8) return fail(res, 400, 'Password must be at least 8 characters.')
-  const userId = passwordResets.consume(String(req.body?.token ?? ''))
+  const userId = await passwordResets.consume(String(req.body?.token ?? ''))
   if (!userId) return fail(res, 400, 'This reset link is invalid or has expired. Request a new one.')
-  users.setPassword(userId, password)
+  await users.setPassword(userId, password)
   res.json({ ok: true })
 })
 
@@ -85,40 +102,40 @@ api.get('/status', (_req, res) => res.json({ ai: aiStatus(), email: emailStatus(
 api.get('/auth/me', (req, res) => res.json({ user: req.user }))
 
 /** Everything the signed-in user may see, in one call (role-filtered on the server). */
-api.get('/bootstrap', (req, res) => {
+api.get('/bootstrap', async (req, res) => {
   const me = req.user!
-  const visible = leads.all().filter((l) => canSeeLead(me, l))
+  const visible = (await leads.all()).filter((l) => canSeeLead(me, l))
   const ids = new Set(visible.map((l) => l.id))
   res.json({
     leads: visible,
-    followUps: followUps.all().filter((f) => ids.has(f.leadId)),
-    history: history.all().filter((h) => ids.has(h.leadId)),
-    users: users.all(),
+    followUps: (await followUps.all()).filter((f) => ids.has(f.leadId)),
+    history: (await history.all()).filter((h) => ids.has(h.leadId)),
+    users: await users.all(),
     scoring: settings.scoring(),
-    services: services.all(),
+    services: await services.all(),
   })
 })
 
 // ── leads ─────────────────────────────────────────────────────────────────
-api.post('/leads', (req, res) => {
+api.post('/leads', async (req, res) => {
   const me = req.user!
   const input = sanitizeLeadInput(req.body?.input ?? {})
   const errors = validateLead(input)
   if (Object.keys(errors).length) return fail(res, 422, 'Please fix the highlighted fields.', errors)
   let assignedTo: string | null = me.role === 'admin' ? (req.body?.assignedTo ?? null) : me.id
-  if (assignedTo && !users.byId(assignedTo)?.active) assignedTo = null
+  if (assignedTo && !(await users.byId(assignedTo))?.active) assignedTo = null
   const t = now()
-  const lead: Lead = { ...input, id: leads.nextId(), status: 'new', assignedTo, createdBy: me.id, createdAt: t, updatedAt: t, notes: '', intelligence: analyzeLead(input, 'new', settings.scoring()) }
-  leads.save(lead)
-  const dupes = findDuplicates(input, leads.all(), lead.id)
-  logHistory(lead.id, me.id, 'Lead created', `Inquiry received via ${input.source}. Score ${lead.intelligence.score}/100 (${lead.intelligence.priority} priority).${dupes.length ? ` Possible duplicate of ${dupes[0].leadId}.` : ''}`)
-  if (assignedTo && assignedTo !== me.id) logHistory(lead.id, me.id, 'Lead assigned', `Assigned to ${users.byId(assignedTo)?.name}.`)
+  const lead: Lead = { ...input, id: await leads.nextId(), status: 'new', assignedTo, createdBy: me.id, createdAt: t, updatedAt: t, notes: '', intelligence: analyzeLead(input, 'new', settings.scoring()) }
+  await leads.save(lead)
+  const dupes = findDuplicates(input, await leads.all(), lead.id)
+  await logHistory(lead.id, me.id, 'Lead created', `Inquiry received via ${input.source}. Score ${lead.intelligence.score}/100 (${lead.intelligence.priority} priority).${dupes.length ? ` Possible duplicate of ${dupes[0].leadId}.` : ''}`)
+  if (assignedTo && assignedTo !== me.id) await logHistory(lead.id, me.id, 'Lead assigned', `Assigned to ${(await users.byId(assignedTo))?.name}.`)
   emitLeadEvent('lead.created', lead)
   res.status(201).json({ lead })
 })
 
-api.put('/leads/:id', (req, res) => {
-  const lead = loadLead(req, res, true)
+api.put('/leads/:id', async (req, res) => {
+  const lead = await loadLead(req, res, true)
   if (!lead) return
   const input = sanitizeLeadInput(req.body?.input ?? {})
   const errors = validateLead(input)
@@ -126,50 +143,50 @@ api.put('/leads/:id', (req, res) => {
   const intelligence = analyzeLead(input, lead.status, settings.scoring())
   const websiteChanged = input.website !== lead.website
   const updated: Lead = { ...lead, ...input, intelligence, updatedAt: now(), websiteAnalysis: websiteChanged ? undefined : lead.websiteAnalysis }
-  leads.save(updated)
-  logHistory(lead.id, req.user!.id, 'Lead updated', `Lead details edited.${intelligence.score !== lead.intelligence.score ? ` Score ${lead.intelligence.score} → ${intelligence.score}.` : ''}`)
+  await leads.save(updated)
+  await logHistory(lead.id, req.user!.id, 'Lead updated', `Lead details edited.${intelligence.score !== lead.intelligence.score ? ` Score ${lead.intelligence.score} → ${intelligence.score}.` : ''}`)
   emitLeadEvent('lead.updated', updated)
   res.json({ lead: updated })
 })
 
-api.delete('/leads/:id', requireAdmin, (req, res) => {
-  const lead = loadLead(req, res)
+api.delete('/leads/:id', requireAdmin, async (req, res) => {
+  const lead = await loadLead(req, res)
   if (!lead) return
-  leads.remove(lead.id)
+  await leads.remove(lead.id)
   res.json({ ok: true })
 })
 
-api.patch('/leads/:id/status', (req, res) => {
-  const lead = loadLead(req, res, true)
+api.patch('/leads/:id/status', async (req, res) => {
+  const lead = await loadLead(req, res, true)
   if (!lead) return
   const status = req.body?.status as LeadStatus
   if (!STATUSES.some((s) => s.value === status)) return fail(res, 400, 'Unknown status.')
   if (status === lead.status) return res.json({ lead })
   const updated: Lead = { ...lead, status, intelligence: analyzeLead(lead, status, settings.scoring()), updatedAt: now() }
-  leads.save(updated)
-  logHistory(lead.id, req.user!.id, 'Status changed', `${statusLabel(lead.status)} → ${statusLabel(status)}`)
+  await leads.save(updated)
+  await logHistory(lead.id, req.user!.id, 'Status changed', `${statusLabel(lead.status)} → ${statusLabel(status)}`)
   emitLeadEvent('lead.status_changed', updated)
   res.json({ lead: updated })
 })
 
-api.patch('/leads/:id/assign', requireAdmin, (req, res) => {
-  const lead = loadLead(req, res)
+api.patch('/leads/:id/assign', requireAdmin, async (req, res) => {
+  const lead = await loadLead(req, res)
   if (!lead) return
   const userId = (req.body?.userId as string | null) || null
-  const target = userId ? users.byId(userId) : null
+  const target = userId ? await users.byId(userId) : null
   if (userId && (!target || !target.active)) return fail(res, 400, 'Leads can only be assigned to an active employee.')
-  leads.save({ ...lead, assignedTo: userId, updatedAt: now() })
+  await leads.save({ ...lead, assignedTo: userId, updatedAt: now() })
   emitLeadEvent('lead.assigned', { ...lead, assignedTo: userId })
-  logHistory(lead.id, req.user!.id, userId ? 'Lead assigned' : 'Lead unassigned', userId ? `Assigned to ${target!.name}.` : 'Removed assignment.')
+  await logHistory(lead.id, req.user!.id, userId ? 'Lead assigned' : 'Lead unassigned', userId ? `Assigned to ${target!.name}.` : 'Removed assignment.')
   res.json({ ok: true })
 })
 
-api.patch('/leads/:id/notes', (req, res) => {
-  const lead = loadLead(req, res, true)
+api.patch('/leads/:id/notes', async (req, res) => {
+  const lead = await loadLead(req, res, true)
   if (!lead) return
   const notes = String(req.body?.notes ?? '').slice(0, 5000)
-  leads.save({ ...lead, notes, updatedAt: now() })
-  logHistory(lead.id, req.user!.id, 'Notes updated', notes.slice(0, 80) || 'Notes cleared.')
+  await leads.save({ ...lead, notes, updatedAt: now() })
+  await logHistory(lead.id, req.user!.id, 'Notes updated', notes.slice(0, 80) || 'Notes cleared.')
   res.json({ ok: true })
 })
 
@@ -180,14 +197,14 @@ async function analyzeWithProfile(url: string) {
 }
 
 api.post('/leads/:id/website-analysis', async (req, res) => {
-  const lead = loadLead(req, res, true)
+  const lead = await loadLead(req, res, true)
   if (!lead) return
   if (!lead.website) return fail(res, 400, 'This lead has no website.')
   try {
     const websiteAnalysis = await analyzeWithProfile(lead.website)
-    const fresh = leads.byId(lead.id)!
-    leads.save({ ...fresh, websiteAnalysis })
-    logHistory(lead.id, req.user!.id, 'Website analysed', `${websiteAnalysis.url}: performance ${websiteAnalysis.performanceScore}, SEO ${websiteAnalysis.seoScore}.`)
+    const fresh = (await leads.byId(lead.id))!
+    await leads.save({ ...fresh, websiteAnalysis })
+    await logHistory(lead.id, req.user!.id, 'Website analysed', `${websiteAnalysis.url}: performance ${websiteAnalysis.performanceScore}, SEO ${websiteAnalysis.seoScore}.`)
     res.json({ websiteAnalysis })
   } catch (e) {
     fail(res, 422, e instanceof AnalysisError ? e.message : 'Website analysis failed.')
@@ -206,8 +223,8 @@ api.post('/website-analysis', async (req, res) => {
 // ── follow-ups ────────────────────────────────────────────────────────────
 const FU_TYPES: FollowUpType[] = ['call', 'email', 'meeting', 'demo']
 
-api.post('/follow-ups', (req, res) => {
-  const lead = leads.byId(String(req.body?.leadId ?? ''))
+api.post('/follow-ups', async (req, res) => {
+  const lead = await leads.byId(String(req.body?.leadId ?? ''))
   if (!lead || !canSeeLead(req.user!, lead)) return fail(res, 404, 'Lead not found.')
   if (!canEditLead(req.user!, lead)) return fail(res, 403, 'You can only add follow-ups to your own leads.')
   const type = req.body?.type as FollowUpType
@@ -215,31 +232,31 @@ api.post('/follow-ups', (req, res) => {
   if (!FU_TYPES.includes(type)) return fail(res, 400, 'Choose a follow-up type.')
   if (Number.isNaN(due.getTime())) return fail(res, 400, 'Choose a valid date and time.')
   const f: FollowUp = { id: `F-${randomUUID()}`, leadId: lead.id, type, dueAt: due.toISOString(), note: String(req.body?.note ?? '').slice(0, 1000), status: 'pending', createdBy: req.user!.id }
-  followUps.save(f)
-  logHistory(lead.id, req.user!.id, 'Follow-up scheduled', `${type[0].toUpperCase()}${type.slice(1)} on ${due.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}${f.note ? `: ${f.note}` : ''}`)
+  await followUps.save(f)
+  await logHistory(lead.id, req.user!.id, 'Follow-up scheduled', `${type[0].toUpperCase()}${type.slice(1)} on ${due.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}${f.note ? `: ${f.note}` : ''}`)
   res.status(201).json({ followUp: f })
 })
 
-function loadFollowUp(req: Request, res: Response) {
-  const f = followUps.byId(String(req.params.id))
-  const lead = f && leads.byId(f.leadId)
+async function loadFollowUp(req: Request, res: Response) {
+  const f = await followUps.byId(String(req.params.id))
+  const lead = f && (await leads.byId(f.leadId))
   if (!f || !lead || !canSeeLead(req.user!, lead)) return void fail(res, 404, 'Follow-up not found.')
   if (!canEditLead(req.user!, lead)) return void fail(res, 403, 'You can only change follow-ups on your own leads.')
   return f
 }
 
-api.patch('/follow-ups/:id/complete', (req, res) => {
-  const f = loadFollowUp(req, res)
+api.patch('/follow-ups/:id/complete', async (req, res) => {
+  const f = await loadFollowUp(req, res)
   if (!f) return
-  followUps.save({ ...f, status: 'done', completedAt: now() })
-  logHistory(f.leadId, req.user!.id, 'Follow-up completed', f.note || f.type)
+  await followUps.save({ ...f, status: 'done', completedAt: now() })
+  await logHistory(f.leadId, req.user!.id, 'Follow-up completed', f.note || f.type)
   res.json({ ok: true })
 })
 
-api.delete('/follow-ups/:id', (req, res) => {
-  const f = loadFollowUp(req, res)
+api.delete('/follow-ups/:id', async (req, res) => {
+  const f = await loadFollowUp(req, res)
   if (!f) return
-  followUps.remove(f.id)
+  await followUps.remove(f.id)
   res.json({ ok: true })
 })
 
@@ -254,19 +271,19 @@ function readUser(body: Record<string, unknown>, base?: User): User | string {
   return { id: base?.id ?? `u-${randomUUID().slice(0, 8)}`, name: name.slice(0, 120), email: email.slice(0, 160), role, title: String(body.title ?? base?.title ?? '').trim().slice(0, 120), active: typeof body.active === 'boolean' ? body.active : (base?.active ?? true) }
 }
 
-api.post('/users', requireAdmin, (req, res) => {
+api.post('/users', requireAdmin, async (req, res) => {
   const u = readUser(req.body ?? {})
   if (typeof u === 'string') return fail(res, 400, u)
-  if (users.emailTaken(u.email)) return fail(res, 409, 'Another user already has this email.')
+  if (await users.emailTaken(u.email)) return fail(res, 409, 'Another user already has this email.')
   const password = String(req.body?.password ?? '')
-  if (password && password.length < 8) return fail(res, 400, 'Password must be at least 8 characters.')
-  users.upsert(u, password || undefined)
+  if (password.length < 8) return fail(res, 400, 'Password must be at least 8 characters.')
+  await users.upsert(u, password)
   res.status(201).json({ user: u })
 })
 
-api.put('/users/:id', (req, res) => {
+api.put('/users/:id', async (req, res) => {
   const me = req.user!
-  const base = users.byId(String(req.params.id))
+  const base = await users.byId(String(req.params.id))
   if (!base) return fail(res, 404, 'User not found.')
   const self = base.id === me.id
   if (me.role !== 'admin' && !self) return fail(res, 403, 'You can only edit your own profile.')
@@ -274,41 +291,36 @@ api.put('/users/:id', (req, res) => {
   const body = me.role === 'admin' && !self ? req.body ?? {} : { name: req.body?.name, title: req.body?.title }
   const u = readUser(body, base)
   if (typeof u === 'string') return fail(res, 400, u)
-  if (users.emailTaken(u.email, u.id)) return fail(res, 409, 'Another user already has this email.')
-  users.upsert(u)
+  if (await users.emailTaken(u.email, u.id)) return fail(res, 409, 'Another user already has this email.')
+  await users.upsert(u)
   res.json({ user: u })
 })
 
-api.put('/users/:id/password', (req, res) => {
+api.put('/users/:id/password', async (req, res) => {
   const me = req.user!
   const id = String(req.params.id)
   const password = String(req.body?.password ?? '')
   if (me.role !== 'admin' && id !== me.id) return fail(res, 403, 'Not allowed.')
   if (password.length < 8) return fail(res, 400, 'Password must be at least 8 characters.')
   if (id === me.id) {
-    const current = users.byEmailWithHash(me.email)
+    const current = await users.byEmailWithHash(me.email)
     if (!current || !bcrypt.compareSync(String(req.body?.currentPassword ?? ''), current.hash)) return fail(res, 400, 'Current password is incorrect.')
   }
-  users.setPassword(id, password)
+  await users.setPassword(id, password)
   res.json({ ok: true })
 })
 
 // ── settings ──────────────────────────────────────────────────────────────
-api.put('/settings/scoring', requireAdmin, (req, res) => {
+api.put('/settings/scoring', requireAdmin, async (req, res) => {
   const s: ScoringSettings = { highThreshold: Number(req.body?.highThreshold), mediumThreshold: Number(req.body?.mediumThreshold) }
   if (!(s.mediumThreshold >= 1 && s.highThreshold <= 100 && s.mediumThreshold < s.highThreshold)) return fail(res, 400, 'Medium threshold must be lower than High (1–100).')
-  settings.setScoring(s)
-  for (const l of leads.all()) leads.save({ ...l, intelligence: analyzeLead(l, l.status, s) })
+  await settings.setScoring(s)
+  await leads.saveMany((await leads.all()).map((l) => ({ ...l, intelligence: analyzeLead(l, l.status, s) })))
   res.json({ scoring: s })
 })
 
 api.get('/settings/integration', requireAdmin, (_req, res) => res.json({ apiKey: settings.captureKey() }))
-api.post('/settings/integration/regenerate', requireAdmin, (_req, res) => res.json({ apiKey: settings.regenerateCaptureKey() }))
-
-api.post('/settings/reset-demo', requireAdmin, (_req, res) => {
-  loadDemoData()
-  res.json({ ok: true })
-})
+api.post('/settings/integration/regenerate', requireAdmin, async (_req, res) => res.json({ apiKey: await settings.regenerateCaptureKey() }))
 
 // ── service catalogue (Admin) ─────────────────────────────────────────────
 function readService(body: Record<string, unknown>, base?: Service): Service | string {
@@ -335,53 +347,53 @@ function readService(body: Record<string, unknown>, base?: Service): Service | s
 }
 
 /** Service changes affect service fit, so every lead is re-scored. */
-function rescoreAll() {
-  services.activate()
+async function rescoreAll() {
+  await services.activate()
   const s = settings.scoring()
-  for (const l of leads.all()) leads.save({ ...l, intelligence: analyzeLead(l, l.status, s) })
+  await leads.saveMany((await leads.all()).map((l) => ({ ...l, intelligence: analyzeLead(l, l.status, s) })))
 }
 
-api.post('/services', requireAdmin, (req, res) => {
+api.post('/services', requireAdmin, async (req, res) => {
   const svc = readService(req.body ?? {})
   if (typeof svc === 'string') return fail(res, 400, svc)
-  services.save(svc)
-  rescoreAll()
+  await services.save(svc)
+  await rescoreAll()
   res.status(201).json({ service: svc })
 })
 
-api.put('/services/:id', requireAdmin, (req, res) => {
+api.put('/services/:id', requireAdmin, async (req, res) => {
   const base = getServices().find((x) => x.id === req.params.id)
   if (!base) return fail(res, 404, 'Service not found.')
   const svc = readService(req.body ?? {}, base)
   if (typeof svc === 'string') return fail(res, 400, svc)
-  services.save(svc)
-  rescoreAll()
+  await services.save(svc)
+  await rescoreAll()
   res.json({ service: svc })
 })
 
-api.delete('/services/:id', requireAdmin, (req, res) => {
+api.delete('/services/:id', requireAdmin, async (req, res) => {
   const id = String(req.params.id)
-  const using = leads.all().filter((l) => l.requiredServices.includes(id)).length
+  const using = (await leads.all()).filter((l) => l.requiredServices.includes(id)).length
   if (using) return fail(res, 409, `${using} lead(s) requested this service. Edit those leads first, or rename the service instead of deleting it.`)
   if (getServices().length <= 1) return fail(res, 400, 'Keep at least one service in the catalogue.')
-  services.remove(id)
-  rescoreAll()
+  await services.remove(id)
+  await rescoreAll()
   res.json({ ok: true })
 })
 
 // ── AI (Gemini / Claude) features ──────────────────────────────────────────────────
 api.post('/leads/:id/ai-summary', async (req, res) => {
-  const lead = loadLead(req, res)
+  const lead = await loadLead(req, res)
   if (!lead) return
   const ai = await summarizeInquiry(lead)
-  const fresh = leads.byId(lead.id)!
-  leads.save({ ...fresh, ai })
-  logHistory(lead.id, req.user!.id, 'AI summary generated', ai.source === 'template' ? 'Inquiry summarised (template, AI not configured).' : `Inquiry summarised by ${ai.source === 'gemini' ? 'Gemini' : 'Claude'}.`)
+  const fresh = (await leads.byId(lead.id))!
+  await leads.save({ ...fresh, ai })
+  await logHistory(lead.id, req.user!.id, 'AI summary generated', ai.source === 'template' ? 'Inquiry summarised (template, AI not configured).' : `Inquiry summarised by ${ai.source === 'gemini' ? 'Gemini' : 'Claude'}.`)
   res.json({ ai })
 })
 
 api.post('/leads/:id/ai-draft', async (req, res) => {
-  const lead = loadLead(req, res)
+  const lead = await loadLead(req, res)
   if (!lead) return
   const channel = req.body?.channel === 'whatsapp' ? 'whatsapp' : 'email'
   const purpose = String(req.body?.purpose ?? '').slice(0, 300)
@@ -389,7 +401,7 @@ api.post('/leads/:id/ai-draft', async (req, res) => {
 })
 
 // ── bulk import ───────────────────────────────────────────────────────────
-api.post('/leads/import', (req, res) => {
+api.post('/leads/import', async (req, res) => {
   const me = req.user!
   const rows = Array.isArray(req.body?.rows) ? (req.body.rows as Record<string, unknown>[]) : []
   if (!rows.length) return fail(res, 400, 'No rows to import.')
@@ -397,6 +409,7 @@ api.post('/leads/import', (req, res) => {
   const created: { row: number; id: string; score: number }[] = []
   const failed: { row: number; errors: string[] }[] = []
   const scoring = settings.scoring()
+  const valid: { row: number; input: LeadInput }[] = []
   rows.forEach((raw, idx) => {
     const input: LeadInput = sanitizeLeadInput(raw)
     if (!input.requiredServices.length) {
@@ -405,18 +418,22 @@ api.post('/leads/import', (req, res) => {
     }
     const errors = validateLead(input)
     if (Object.keys(errors).length) return void failed.push({ row: idx + 1, errors: Object.values(errors) as string[] })
-    const t = now()
-    const lead: Lead = { ...input, id: leads.nextId(), status: 'new', assignedTo: me.role === 'admin' ? null : me.id, createdBy: me.id, createdAt: t, updatedAt: t, notes: '', intelligence: analyzeLead(input, 'new', scoring) }
-    leads.save(lead)
-    logHistory(lead.id, me.id, 'Lead created', `Imported from a CSV file. Score ${lead.intelligence.score}/100.`)
+    valid.push({ row: idx + 1, input })
+  })
+  const ids = valid.length ? await leads.nextIds(valid.length) : []
+  const t = now()
+  const newLeads: Lead[] = valid.map(({ input }, i) => ({ ...input, id: ids[i], status: 'new', assignedTo: me.role === 'admin' ? null : me.id, createdBy: me.id, createdAt: t, updatedAt: t, notes: '', intelligence: analyzeLead(input, 'new', scoring) }))
+  await leads.saveMany(newLeads)
+  await history.addMany(newLeads.map((l) => newHistory(l.id, me.id, 'Lead created', `Imported from a CSV file. Score ${l.intelligence.score}/100.`)))
+  newLeads.forEach((lead, i) => {
     emitLeadEvent('lead.created', lead)
-    created.push({ row: idx + 1, id: lead.id, score: lead.intelligence.score })
+    created.push({ row: valid[i].row, id: lead.id, score: lead.intelligence.score })
   })
   res.json({ created, failed })
 })
 
 // ── email (Admin) ─────────────────────────────────────────────────────────
-api.get('/settings/email', requireAdmin, (_req, res) => res.json({ status: emailStatus(), outbox: outbox.recent(30) }))
+api.get('/settings/email', requireAdmin, async (_req, res) => res.json({ status: emailStatus(), outbox: await outbox.recent(30) }))
 
 api.post('/settings/email/test', requireAdmin, async (req, res) => {
   const to = String(req.body?.to ?? req.user!.email).trim()
@@ -430,7 +447,7 @@ api.post('/settings/reminders/run', requireAdmin, async (_req, res) => res.json(
 // ── CRM integrations (Admin) ──────────────────────────────────────────────
 api.get('/settings/crm', requireAdmin, (_req, res) => res.json({ config: publicIntegrationConfig(), events: WEBHOOK_EVENTS }))
 
-api.put('/settings/crm', requireAdmin, (req, res) => {
+api.put('/settings/crm', requireAdmin, async (req, res) => {
   const b = req.body ?? {}
   const patch: Record<string, unknown> = {}
   if (typeof b.webhookUrl === 'string') {
@@ -453,11 +470,11 @@ api.post('/settings/crm/test-webhook', requireAdmin, async (_req, res) => {
 })
 
 api.post('/leads/:id/hubspot', async (req, res) => {
-  const lead = loadLead(req, res, true)
+  const lead = await loadLead(req, res, true)
   if (!lead) return
   try {
     const id = await pushToHubspot(lead)
-    logHistory(lead.id, req.user!.id, 'Pushed to CRM', `Synced to HubSpot (contact ${id}).`)
+    await logHistory(lead.id, req.user!.id, 'Pushed to CRM', `Synced to HubSpot (contact ${id}).`)
     res.json({ hubspotId: id })
   } catch (e) {
     fail(res, e instanceof HubspotError ? 400 : 502, e instanceof Error ? e.message : 'HubSpot sync failed.')

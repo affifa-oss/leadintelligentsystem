@@ -4,11 +4,11 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import cors from 'cors'
 import express, { type NextFunction, type Request, type Response } from 'express'
-import { seedIfEmpty } from './db.ts'
+import { initDatabase } from './db.ts'
 import { api } from './routes/api.ts'
 import { capture } from './routes/capture.ts'
 
-seedIfEmpty()
+await initDatabase()
 
 const here = dirname(fileURLToPath(import.meta.url))
 export const distDir = resolve(here, '../../frontend/dist')

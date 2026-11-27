@@ -91,7 +91,7 @@ function Nav() {
             <>
               <Link to="/login" className="inline-flex h-10 items-center rounded-xl px-4 text-sm font-semibold text-ink transition hover:bg-brand-50 hover:text-brand-700">Log in</Link>
               <Link to="/login" className="shine inline-flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-700 px-4 text-sm font-semibold text-white shadow-md shadow-brand-600/25 transition hover:-translate-y-0.5">
-                Try the demo <ArrowRight className="h-4 w-4" />
+                Get started <ArrowRight className="h-4 w-4" />
               </Link>
             </>
           )}
@@ -112,7 +112,7 @@ function Nav() {
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <Link to="/login" className="flex h-11 items-center justify-center rounded-xl border border-brand-200 font-semibold text-brand-700">Log in</Link>
-              <Link to="/login" className="flex h-11 items-center justify-center rounded-xl bg-brand-600 font-semibold text-white">Try the demo</Link>
+              <Link to="/login" className="flex h-11 items-center justify-center rounded-xl bg-brand-600 font-semibold text-white">Get started</Link>
             </div>
           )}
         </div>
@@ -270,7 +270,7 @@ const FAQ = [
   { q: 'Do I need a paid AI key?', a: 'No. AI summaries and follow-up drafts work with a free Google Gemini key. Claude is supported as a paid alternative, and without any key LeadIntel falls back to built-in templates.' },
   { q: 'What does the website analysis check?', a: 'It visits the lead’s website and checks HTTPS, response time, page size, SEO tags, mobile readiness and the technology used, adds Google Lighthouse performance, and builds a company profile with its history from the Internet Archive.' },
   { q: 'Can my sales team use it?', a: 'Yes. Admins (sales managers) see and manage everything; sales employees see the leads assigned to or created by them. Roles are enforced on the server.' },
-  { q: 'Can I try it without signing up?', a: 'Yes. The login page has one-click demo accounts for an Admin and a Sales employee, preloaded with sample leads.' },
+  { q: 'How do I get started?', a: 'On first start the login page asks you to create the admin account. Then add your services, invite your sales team and import or capture your leads.' },
 ]
 
 function FaqItem({ q, a }: { q: string; a: string }) {
@@ -294,7 +294,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 export default function LandingPage() {
   const { user } = useAuth()
-  const cta = user ? { to: '/dashboard', label: 'Open dashboard' } : { to: '/login', label: 'Try the live demo' }
+  const cta = user ? { to: '/dashboard', label: 'Open dashboard' } : { to: '/login', label: 'Get started' }
 
   return (
     <div id="top" className="min-h-screen overflow-x-clip text-ink">
@@ -330,7 +330,7 @@ export default function LandingPage() {
               </a>
             </div>
             <ul className="animate-page mt-7 flex flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] text-slate-500 [animation-delay:240ms] lg:justify-start">
-              {['One-click demo accounts', 'Free AI with Gemini', 'Website analysis built in'].map((t) => (
+              {['Role-based team access', 'Free AI with Gemini', 'Website analysis built in'].map((t) => (
                 <li key={t} className="flex items-center gap-1.5"><Check className="h-4 w-4 text-brand-500" /> {t}</li>
               ))}
             </ul>
@@ -547,7 +547,7 @@ export default function LandingPage() {
       {/* ── FAQ ── */}
       <section id="faq" className="scroll-mt-20 bg-white/60 py-24 backdrop-blur sm:py-28">
         <div className="mx-auto grid max-w-6xl gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_1.5fr]">
-          <SectionHead center={false} eyebrow="FAQ" title="Questions, answered" text="Still curious? Open the live demo and explore with sample leads." />
+          <SectionHead center={false} eyebrow="FAQ" title="Questions, answered" text="Still curious? Sign in and score your first lead in minutes." />
           <Reveal delay={100}>
             <div className="space-y-3">
               {FAQ.map((f) => <FaqItem key={f.q} {...f} />)}
@@ -565,7 +565,7 @@ export default function LandingPage() {
               <div className="pointer-events-none absolute -bottom-24 -right-10 h-72 w-72 animate-blob bg-brand-900/40 blur-3xl [animation-delay:-7s]" />
               <TrendingUp className="relative mx-auto h-10 w-10 animate-float text-brand-100" />
               <h2 className="relative mx-auto mt-5 max-w-2xl text-3xl font-extrabold leading-tight sm:text-[44px]">Stop guessing. Start closing.</h2>
-              <p className="relative mx-auto mt-4 max-w-lg text-base text-white/85">Open the live demo and see your next best lead in seconds.</p>
+              <p className="relative mx-auto mt-4 max-w-lg text-base text-white/85">Sign in and see your next best lead in seconds.</p>
               <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Link to={cta.to} className="group inline-flex h-12 items-center gap-2 rounded-2xl bg-white px-6 text-[15px] font-semibold text-brand-700 shadow-lg transition hover:-translate-y-0.5">
                   {cta.label} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />

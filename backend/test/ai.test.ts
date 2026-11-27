@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
 import { aiStatus, draftFollowUp, resetAiCooldown, summarizeInquiry } from '../src/ai.ts'
-import { buildSeedData } from '../src/shared.ts'
+import { buildSeedData } from './fixtures/demoData.ts'
 
 const lead = buildSeedData().leads[0]
 const realFetch = globalThis.fetch
